@@ -62,17 +62,59 @@ def pytest_configure(config):
 
 
 def pytest_collection_finish(session):
-    print("end collection")
-    testsList = []
+    print("in config in files")
+    session.results = dict()
+    print(session.items)
+    print("SP", session.path)
+    parent_list = []
+    folder_list = {}
     for item in session.items:
-        parentCur = item.parent
-        path = str(item.name)
-        while parentCur != session:
-            path = str(parentCur.name) + "::" + path
-            parentCur = parentCur.parent
-        testsList.append(path)
-    print("final tests collected", testsList)
-    sendPost()
+        parentIt = item.parent
+        pid = parentIt.nodeid
+        i = {
+            "path": item.fspath,
+            "name": item.name,
+            "type_": "test",
+            "lineno": 0,
+            "id_": item.nodeid,
+        }
+        if parentIt not in parent_list:
+            parent_list.append(parentIt)
+
+            f = {
+                "path": parentIt.fspath,
+                "type": "folder",
+                "name": parentIt.name,
+                "children": [i],
+                "id": pid,
+            }
+            folder_list.update({pid: f})
+        else:
+            f = folder_list.get(pid)
+            f.get("children").append(i)  # type: ignore
+
+    print("PL", parent_list)
+    print("FL", folder_list)
+    # print("end collection")
+    # testsList = []
+    # buildTestTree(session)
+    # for item in session.items:
+    #     parentCur = item.parent
+    #     path = str(item.name)
+    #     while parentCur != session:
+    #         path = str(parentCur.name) + "::" + path
+    #         parentCur = parentCur.parent
+    #     testsList.append(path)
+    # print("final tests collected", testsList)
+    # sendPost()
+
+
+def buildPayload():
+    print("building payload")
+
+
+def buildTestTree(session):
+    print("building test tree")
 
 
 # def pytest_collectstart(collector):
