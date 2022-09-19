@@ -62,10 +62,9 @@ def pytest_configure(config):
 
 
 def pytest_collection_finish(session):
-    print("in config in files")
+    print("pytest collection finish")
     session.results = dict()
-    print(session.items)
-    print("SP", session.path)
+    # print("SP", session.path)
     parent_list = []
     folder_list = {}
     for item in session.items:
@@ -92,9 +91,10 @@ def pytest_collection_finish(session):
         else:
             f = folder_list.get(pid)
             f.get("children").append(i)  # type: ignore
+    sendPost()
 
-    print("PL", parent_list)
-    print("FL", folder_list)
+    # print("PL", parent_list)
+    # print("FL", folder_list)
     # print("end collection")
     # testsList = []
     # buildTestTree(session)
@@ -135,9 +135,19 @@ def buildTestTree(session):
 
 def sendPost():
     payload: dict = {"status": "success"}
-    addr = ("localhost", 45454)
-    print("sending post")
+    testPort = os.getenv("TEST_PORT", 45454)
+    addr = ("localhost", int(testPort))
+    print("sending post", addr)
     # socket_manager.send_post("Hello from pytest")  # type: ignore
     with socket_manager.SocketManager(addr) as s:
-        request = json.dumps(payload)
+        data = json.dumps(payload)
+        request = f"""POST / HTTP/1.1
+Host: localhost:{testPort}
+Content-Length: {len(data)}
+Content-Type: application/json
+Request-uuid: {12312432423}
+
+{data}"""
         result = s.socket.sendall(request.encode("utf-8"))  # type: ignore
+        # request = json.dumps(payload)
+        # result = s.socket.sendall(request.encode("utf-8"))  # type: ignore
