@@ -7,10 +7,8 @@ import sys
 from dbm.ndbm import library
 from typing import KeysView, List, Literal, Optional, Tuple, TypedDict, Union
 
-import pytest
-
-sys.path.append("/Users/eleanorboyd/vscode-python/pythonFiles/lib/python")
 import debugpy
+import pytest
 
 debugpy.connect(5678)
 
@@ -64,58 +62,17 @@ def pytest_addoption(parser):
     )
 
 
-# parser.addini("HELLO", "Dummy pytest.ini setting")
-
-
-# @pytest.fixture
-# def bar(request):
-#     return request.config.option.dest_foo
-
-
-def pytest_configure(config):
-    # print("ALERT!! in plugin configure", config)
-    # print("args", config.args)
-    inputArgs = vars(config.option)
-    port = inputArgs["port_arg"]
-    print("portValue", port)
-
-
-#     # called for running each test in 'a' directory
-#     print("AAAAA: setting up", item)
+# def pytest_configure(config):
+#     inputArgs = vars(config.option)
+#     port = inputArgs["port_arg"]
+#     print("portValue", port)
 
 
 def pytest_collection_finish(session):
-    # print("pytest collection finish")
-    # session.results = dict()
     node, error = build_test_tree(session)
-    # print("folder list", folder_list)
-    # session_test_node = {
-    #             "name": session.name,
-    #             "path": str(session.fspath),
-    #             "type": TestNodeTypeEnum.folder,  # check if this is a file or a folder
-    #             "id": session.nodeid,
-    #             "children": folder_list,
-    #         }
-
     cwd = os.getcwd()
     print("session, test node")
     sendPost(cwd, node)
-    # print("SP", session.path)
-
-    # print("PL", parent_list)
-    # print("FL", folder_list)
-    # print("end collection")
-    # testsList = []
-    # buildTestTree(session)
-    # for item in session.items:
-    #     parentCur = item.parent
-    #     path = str(item.name)
-    #     while parentCur != session:
-    #         path = str(parentCur.name) + "::" + path
-    #         parentCur = parentCur.parent
-    #     testsList.append(path)
-    # print("final tests collected", testsList)
-    # sendPost()
 
 
 def buildPayload():
@@ -210,57 +167,9 @@ def build_test_tree(session) -> Tuple[Union[TestNode, None], List[str]]:
     return session_test_node, errors
 
 
-# def build_test_tree(session):
-#     print("building test tree")
-#     errors = []  # how do I check for errors
-#     parent_list = []
-#     folder_list = {}
-#     for item in session.items:
-#         parentIterator = item.parent
-#         parentId = parentIterator.nodeid
-#         currTestItem = {
-#             "path": str(item.fspath),
-#             "name": item.name,
-#             "type_": TestNodeTypeEnum.test,
-#             "id_": item.nodeid,
-#             "lineno": item.location[1],  # idk worth a shot
-#             "runID": item.nodeid,  # can I use this two times?
-#         }
-#         if parentId not in parent_list:
-#             parent_list.append(parentId)
-#             folder_test_node = {
-#                 "name": parentIterator.name,
-#                 "path": str(parentIterator.fspath),
-#                 "type": TestNodeTypeEnum.folder,  # check if this is a file or a folder
-#                 "id": parentId,
-#                 "children": [currTestItem],
-#             }
-#             folder_list.update({parentId: folder_test_node})
-#         else:
-#             folder_test_node = folder_list.get(parentId)
-#             folder_test_node.get("children").append(currTestItem)  # type: ignore
-#     return list(folder_list.values())
-
-
 def build_test_node(path: str, name: str, id: str, type_: TestNodeTypeEnum) -> TestNode:
     print("building test node")
     return {"path": path, "name": name, "type_": type_, "children": [], "id_": id}
-
-
-# def pytest_collectstart(collector):
-#     c = collector
-#     print("collector", c)
-#     print("ALERT!! in plugin collector start")
-
-
-# def pytest_addoption(parser, pluginmanager):
-#     print("parser xtra info", parser.extra_info)
-
-#     print("pluginmanager", pluginmanager)
-
-
-# def get_config(request):
-#     print("ABCD request,", request.config)
 
 
 class PayloadDict(TypedDict):
@@ -287,5 +196,3 @@ Request-uuid: {testuuid}
 
 {data}"""
         result = s.socket.sendall(request.encode("utf-8"))  # type: ignore
-        # request = json.dumps(payload)
-        # result = s.socket.sendall(request.encode("utf-8"))  # type: ignore
