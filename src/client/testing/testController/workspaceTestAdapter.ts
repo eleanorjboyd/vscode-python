@@ -348,7 +348,7 @@ function populateTestTree(
 
     // Recursively populate the tree with test data.
     for (let i = 0; i < testTreeData.children.length; i = i + 1) {
-        console.debug('testTreeData.children i= ', i, '', testTreeData.children[i]);
+        // console.debug('testTreeData.children i= ', i, '', testTreeData.children[i]);
     }
 
     testTreeData.children.forEach((child) => {
@@ -364,6 +364,7 @@ function populateTestTree(
                 testItem.canResolveChildren = false;
                 testItem.range = range;
                 testItem.tags = [RunTestTag, DebugTestTag];
+                console.debug('adding test item: ', testItem?.id, 'to root item: ', testRoot?.id);
                 testRoot!.children.add(testItem);
                 // add to our map
                 wstAdapter.runIdToTestItem.set(child.runID, testItem);
@@ -371,14 +372,18 @@ function populateTestTree(
                 wstAdapter.vsIdToRunId.set(child.id_, child.runID);
             } else {
                 let node = testController.items.get(child.path);
-
+                console.debug('AA node = ', node?.id, ' child.path = ', child.path);
                 if (!node) {
                     node = testController.createTestItem(child.id_, child.name, Uri.file(child.path));
-
+                    console.debug('!node BB node', node.id, 'child.path', child.name);
                     node.canResolveChildren = true;
                     node.tags = [RunTestTag, DebugTestTag];
 
                     testRoot!.children.add(node);
+                    console.debug('test root ', testRoot?.id, testRoot?.children.size);
+                    testRoot?.children.forEach((child1) => {
+                        console.debug('testRoot.children = ', child1.id);
+                    });
                 }
                 populateTestTree(testController, child, node, wstAdapter, token);
             }
