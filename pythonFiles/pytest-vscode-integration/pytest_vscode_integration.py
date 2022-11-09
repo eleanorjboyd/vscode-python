@@ -103,34 +103,22 @@ def build_test_tree(session) -> Tuple[Union[TestNode, None], List[str]]:
 
     created_filesfolder_dict: dict[str, TestNode] = {}
     for file_module, testNode_file in testNode_file_dict.items():
-        name = str(file_module.name)
+        # relative_path = file_module.path.relative_to(session.path)
+        # relative_path_parts = relative_path.parts
+        # name = str(file_module.name)
         prev_folder_test_node: TestNode = testNode_file
-        if "/" in name:
-            # it is a nested folder structure and so new objects need to be created
-            nested_folder_list = name.split("/")
-            path_iterator = (
-                str(session.path)
-                + "/"
-                + "/".join(
-                    nested_folder_list[0:-1]
-                )  # check to see if windows style (more fancy stuff path lib if windows or posix via API in os module)
+        i_path = file_module.path.parent
+        while i_path != session.path:
+            folderName = i_path.name
+            test_folder_node = created_filesfolder_dict.setdefault(
+                folderName, createFolderTestNode(folderName, i_path)
             )
-            for i in range(len(nested_folder_list) - 2, -1, -1):  # reverse and slice
-                folderName = nested_folder_list[i]
-                test_folder_node = created_filesfolder_dict.setdefault(
-                    folderName, createFolderTestNode(folderName, path_iterator)
-                )
-                if prev_folder_test_node not in test_folder_node["children"]:
-                    test_folder_node["children"].append(prev_folder_test_node)
-                # TestNode_test before
-                # increase iteration through path
-                prev_folder_test_node = test_folder_node
-                path_iterator = str(session.path) + "/".join(nested_folder_list[0:i])
-
+            if prev_folder_test_node not in test_folder_node["children"]:
+                test_folder_node["children"].append(prev_folder_test_node)
+            i_path = i_path.parent
+            prev_folder_test_node = test_folder_node
         # the final folder we get to is the highest folder in the path and therefore we add this as a child to the session
-        if (prev_folder_test_node is not None) and (
-            prev_folder_test_node.get("id_") not in session_children_dict
-        ):
+        if prev_folder_test_node.get("id_") not in session_children_dict:
             session_children_dict[
                 prev_folder_test_node.get("id_")
             ] = prev_folder_test_node
