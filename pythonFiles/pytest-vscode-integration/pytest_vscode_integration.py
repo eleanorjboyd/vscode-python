@@ -171,7 +171,7 @@ def createClassTestNode(class_module) -> TestNode:
 
 def createFileTestNode(file_module) -> TestNode:
     return {
-        "name": str(file_module.path.basename),  # check
+        "name": str(file_module.path.name),  # check
         "path": str(file_module.path),
         "type_": TestNodeTypeEnum.file,
         "id_": str(file_module.path),
@@ -187,16 +187,6 @@ def createFolderTestNode(folderName, path_iterator) -> TestNode:
         "id_": str(path_iterator),
         "children": [],
     }
-
-
-# def accessOrCreateClass(class_module, testNode_class_dict) -> TestNode:
-#     if class_module.name in testNode_class_dict.keys():  # exists in the dictionary
-#         return testNode_class_dict[class_module.name]
-#     else:
-#         # create new
-#         temp = createClassTestNode(class_module.name, class_module.path)
-#         testNode_class_dict[class_module.name] = temp
-#         return temp
 
 
 class PayloadDict(TypedDict):
