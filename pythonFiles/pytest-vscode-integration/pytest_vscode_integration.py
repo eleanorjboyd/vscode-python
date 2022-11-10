@@ -2,11 +2,8 @@
 import enum
 import json
 import os
-import pathlib
 import sys
-from dbm.ndbm import library
-from typing import KeysView, List, Literal, Optional, Tuple, TypedDict, Union
-from unittest import TestCase
+from typing import List, Literal, Tuple, TypedDict, Union
 
 import pytest
 
@@ -46,167 +43,125 @@ from typing_extensions import NotRequired
 
 DEFAULT_PORT = "45454"
 
-# session
-#   test Case
-
-# modules folders1/folders2  (can be in classes)
-#   test cases
-
-# module
-# class
-# test case
-
 
 def pytest_collection_finish(session):
     node, error = build_test_tree(session)
     cwd = os.getcwd()
-    # add error check
+    # TODO: add error checking.
     sendPost(cwd, node)
 
 
 def build_test_tree(session) -> Tuple[Union[TestNode, None], List[str]]:
-    errors: List[str] = []  # TODO: how do I check for errors
-    session_test_node = createSessionTestNode(session)
-    testNode_file_dict: dict[
-        pytest.Module, TestNode
-    ] = dict()  # a dictionary of all files in the session
-    session_children_dict: dict[
-        str, TestNode
-    ] = dict()  # a dictionary of all direct children of the session
-    testNode_class_dict: dict[
-        str, TestNode
-    ] = dict()  # a dictionary of all direct children of the session
-    # iterate through all the test items in the session
+    errors: List[str] = []
+    session_node = create_session_node(session)
+    # a dictionary of all direct children of the session.
+    session_children_dict: dict[str, TestNode] = dict()
+    # a dictionary of all files in the session.
+    file_nodes_dict: dict[pytest.Module, TestNode] = dict()
+    # a dictionary of all classes in the session.
+    class_nodes_dict: dict[str, TestNode] = dict()
+    # iterate through all the test items in the session.
     for test_case in session.items:
-        testNode_test = createTestItem(test_case)
-        # if the parent object file doesn't already exist
+        test_node = create_test_node(test_case)
+        # Check parent node type, either Module or UnitTest class.
         if type(test_case.parent) == pytest.Module:
-            if test_case.parent not in testNode_file_dict:
-                testNode_file_dict[test_case.parent] = createFileTestNode(
-                    test_case.parent
-                )
-            testNode_file_dict[test_case.parent].get("children").append(
-                testNode_test
-            )  # use set default
+            file_nodes_dict.setdefault(
+                test_case.parent, create_file_node(test_case.parent)
+            )["children"].append(test_node)
         else:
-            # this means its a unittest class
-            # create class
-            testNode_class = accessOrCreateGeneral(
-                test_case.parent.name, testNode_class_dict, test_case.parent.fspath
+            test_class_node = class_nodes_dict.setdefault(
+                test_case.parent.name,
+                create_class_node(test_case.parent),
             )
-            testNode_class["children"].append(testNode_test)
+            test_class_node["children"].append(test_node)
             parent_module = test_case.parent.parent
-            # create file that wraps class
-            if parent_module not in testNode_file_dict.keys():
-                testNode_file_dict[parent_module] = createFileTestNode(parent_module)
-            testNode_file_dict[parent_module].get("children").append(testNode_class)
-
-    created_filesfolder_dict: dict[str, TestNode] = {}
-    for file_module, testNode_file in testNode_file_dict.items():
-        name = str(file_module.name)
-        prev_folder_test_node: TestNode = testNode_file
-        if "/" in name:
-            # it is a nested folder structure and so new objects need to be created
-            nested_folder_list = name.split("/")
-            path_iterator = (
-                str(session.fspath)
-                + "/"
-                + "/".join(
-                    nested_folder_list[0:-1]
-                )  # check to see if windows style (more fancy stuff path lib if windows or posix via API in os module)
+            # Create a file node that has the class as a child.
+            test_file_node = file_nodes_dict.setdefault(
+                parent_module, create_file_node(parent_module)
             )
-            for i in range(len(nested_folder_list) - 2, -1, -1):  # reverse and slice
-                folderName = nested_folder_list[i]
-                folder_test_node = accessOrCreateGeneral(
-                    folderName,
-                    created_filesfolder_dict,
-                    path_iterator,
-                )
-                folder_test_node["children"].append(prev_folder_test_node)
-                # increase iteration through path
-                prev_folder_test_node = folder_test_node
-                path_iterator = str(session.fspath) + "/".join(nested_folder_list[0:i])
+            # Check if the class is already a child of the file node.
+            if test_class_node not in test_file_node["children"]:
+                test_file_node["children"].append(test_class_node)
 
-        # the final folder we get to is the highest folder in the path and therefore we add this as a child to the session
-        if (prev_folder_test_node is not None) and (
-            prev_folder_test_node.get("id_") not in session_children_dict
-        ):
-            session_children_dict[
-                prev_folder_test_node.get("id_")
-            ] = prev_folder_test_node
-    session_test_node["children"] = list(session_children_dict.values())
-    return session_test_node, errors
+    created_files_folders_dict: dict[str, TestNode] = {}
+    for file_module, file_node in file_nodes_dict.items():
+        root_folder_node = build_nested_folders(
+            file_module, file_node, created_files_folders_dict, session
+        )
+        # the final folder we get to is the highest folder in the path and therefore we add this as a child to the session.
+        if root_folder_node.get("id_") not in session_children_dict:
+            session_children_dict[root_folder_node.get("id_")] = root_folder_node
+    session_node["children"] = list(session_children_dict.values())
+    return session_node, errors
 
 
-def createTestItem(test_case) -> TestItem:
+def build_nested_folders(
+    file_module, file_node, created_files_folders_dict, session
+) -> TestNode:
+    prev_folder_node: TestNode = file_node
+    # Begin the i_path iteration one level above the current file.
+    iterator_path = file_module.path.parent
+    while iterator_path != session.path:
+        curr_folder_name = iterator_path.name
+        curr_folder_node = created_files_folders_dict.setdefault(
+            curr_folder_name, create_folder_node(curr_folder_name, iterator_path)
+        )
+        if prev_folder_node not in curr_folder_node["children"]:
+            curr_folder_node["children"].append(prev_folder_node)
+        iterator_path = iterator_path.parent
+        prev_folder_node = curr_folder_node
+    return prev_folder_node
+
+
+def create_test_node(test_case) -> TestItem:
     return {
         "name": test_case.name,
-        "path": str(test_case.fspath),
+        "path": str(test_case.path),
         "lineno": test_case.location[1] + 1,
         "type_": TestNodeTypeEnum.test,
-        "id_": str(test_case.nodeid),
-        "runID": test_case.nodeid,  # can I use this two times?
+        "id_": test_case.nodeid,  # remove cast
+        "runID": test_case.nodeid,
     }
 
 
-def createSessionTestNode(session) -> TestNode:
+def create_session_node(session) -> TestNode:
     return {
         "name": session.name,
-        "path": str(session.fspath),
-        "type_": TestNodeTypeEnum.folder,  # check if this is a file or a folder
+        "path": str(session.path),
+        "type_": TestNodeTypeEnum.folder,
         "children": [],
-        "id_": str(session.fspath),
+        "id_": str(session.path),
     }
 
 
-def createClassTestNode(class_module_name, class_module_path) -> TestNode:
+def create_class_node(class_module) -> TestNode:
     return {
-        "name": class_module_name,
-        "path": str(class_module_path),
+        "name": class_module.name,
+        "path": str(class_module.path),
         "type_": TestNodeTypeEnum.class_,
         "children": [],
-        "id_": str(class_module_path),
+        "id_": class_module.nodeid,
     }
 
 
-def createFileTestNode(file_module) -> TestNode:
+def create_file_node(file_module) -> TestNode:
     return {
-        "name": str(file_module.fspath.basename),
-        "path": str(file_module.fspath),
+        "name": str(file_module.path.name),
+        "path": str(file_module.path),
         "type_": TestNodeTypeEnum.file,
-        "id_": str(file_module.fspath),
+        "id_": str(file_module.path),
         "children": [],
     }
 
 
-def createFolderTestNode(folderName, path_iterator) -> TestNode:
+def create_folder_node(folderName, path_iterator) -> TestNode:
     return {
         "name": folderName,
         "path": str(path_iterator),
-        "type_": TestNodeTypeEnum.folder,  # check if this is a file or a folder
+        "type_": TestNodeTypeEnum.folder,
         "id_": str(path_iterator),
         "children": [],
     }
-
-
-def accessOrCreateGeneral(test_node_name, test_node_dict, test_node_path) -> TestNode:
-    if test_node_name in test_node_dict.keys():  # exists in the dictionary
-        return test_node_dict[test_node_name]
-    else:
-        # create new
-        temp = createFolderTestNode(test_node_name, test_node_path)
-        test_node_dict[test_node_name] = temp
-        return temp
-
-
-# def accessOrCreateClass(class_module, testNode_class_dict) -> TestNode:
-#     if class_module.name in testNode_class_dict.keys():  # exists in the dictionary
-#         return testNode_class_dict[class_module.name]
-#     else:
-#         # create new
-#         temp = createClassTestNode(class_module.name, class_module.fspath)
-#         testNode_class_dict[class_module.name] = temp
-#         return temp
 
 
 class PayloadDict(TypedDict):
@@ -222,7 +177,6 @@ def sendPost(cwd, tests):
     testuuid = os.getenv("TEST_UUID")
     addr = ("localhost", int(testPort))
     print("sending post", addr, cwd)
-    # socket_manager.send_post("Hello from pytest")  # type: ignore
     with socket_manager.SocketManager(addr) as s:
         data = json.dumps(payload)
         request = f"""POST / HTTP/1.1
