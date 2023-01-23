@@ -253,6 +253,13 @@
             "request": "attach",
             "listen": { "host": "localhost", "port": 5678 },
             "justMyCode": true
+        },
+        {
+            "name": "pytest connect",
+            "type": "python",
+            "request": "attach",
+            "connect": { "host": "localhost", "port": 6789 },
+            "justMyCode": false
         }
     ],
     "compounds": [
