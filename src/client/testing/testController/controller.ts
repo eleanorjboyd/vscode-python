@@ -163,7 +163,7 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
                 testProvider = UNITTEST_PROVIDER;
             } else {
                 discoveryAdapter = new PytestTestDiscoveryAdapter(this.pythonTestServer, this.configSettings);
-                executionAdapter = new PytestTestExecutionAdapter(this.pythonTestServer, this.configSettings); // ** why this??
+                executionAdapter = new PytestTestExecutionAdapter(this.pythonTestServer, this.configSettings);
                 testProvider = PYTEST_PROVIDER;
             }
 

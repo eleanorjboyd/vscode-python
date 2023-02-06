@@ -52,7 +52,6 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
             this.deferred = createDeferred<ExecutionTestPayload>();
             const relativePathToPytest = 'pythonFiles';
             const fullPluginPath = path.join(EXTENSION_ROOT_DIR, relativePathToPytest);
-            this.configSettings.isTestExecution();
             const uuid = this.testServer.createUUID(uri.fsPath);
             const settings = this.configSettings.getSettings(uri);
             const { pytestArgs } = settings.testing;
