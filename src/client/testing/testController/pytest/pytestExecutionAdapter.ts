@@ -28,6 +28,7 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
 
     public onDataReceivedHandler({ cwd, data }: DataReceivedEvent): void {
         if (this.deferred && cwd === this.cwd) {
+            console.log('data received: ', data)
             const testData: ExecutionTestPayload = JSON.parse(data);
 
             this.deferred.resolve(testData);
@@ -55,7 +56,7 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
             const uuid = this.testServer.createUUID(uri.fsPath);
             const settings = this.configSettings.getSettings(uri);
             const { pytestArgs } = settings.testing;
-
+            this.cwd = uri.fsPath;
             const pythonPathParts: string[] = process.env.PYTHONPATH?.split(path.delimiter) ?? [];
             const pythonPathCommand = [fullPluginPath, ...pythonPathParts].join(path.delimiter);
 
@@ -77,13 +78,10 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
             // need to check what will happen in the exec service is NOT defined and is null
             const execService = await executionFactory?.createActivatedEnvironment(creationOptions);
 
-            const testIdsString = testIds.join(' ');
-            console.debug('what to do with debug bool?', debugBool);
+            // const testIdsString: string = testIds.join(' ');
+            const ar = ['-m', 'pytest', '-p', 'vscode_pytest'].concat(testIds).concat(pytestArgs);
             try {
-                execService?.exec(
-                    ['-m', 'pytest', '-p', 'vscode_pytest', testIdsString].concat(pytestArgs),
-                    spawnOptions,
-                );
+                execService?.exec(ar, spawnOptions);
             } catch (ex) {
                 console.error(ex);
             }

@@ -134,7 +134,7 @@ export class WorkspaceTestAdapter {
         } finally {
             this.executing = undefined;
         }
-
+        console.log("HEREHREHRE")
         if (rawTestExecData !== undefined && rawTestExecData.result !== undefined) {
             for (const keyTemp of Object.keys(rawTestExecData.result)) {
                 // check for result and update the UI accordingly.

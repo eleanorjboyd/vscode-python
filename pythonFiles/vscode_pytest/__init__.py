@@ -12,6 +12,9 @@ from _pytest.doctest import DoctestItem, DoctestTextfile
 script_dir = pathlib.Path(__file__).parent.parent
 sys.path.append(os.fspath(script_dir))
 sys.path.append(os.fspath(script_dir / "lib" / "python"))
+import debugpy
+
+debugpy.connect(5678)
 
 # Inherit from str so it's JSON serializable.
 class TestNodeTypeEnum(str, enum.Enum):
@@ -44,11 +47,64 @@ from typing_extensions import NotRequired
 DEFAULT_PORT = "45454"
 
 
+# for pytest the outcome for a test is only 'passed', 'skipped' or 'failed'
+class TestOutcomeEnum(str, enum.Enum):
+    success = "success"
+    failure = "failure"
+    skipped = "skipped"
+    
+
+class TestOutcome(TypedDict):
+    test: str
+    outcome: TestOutcomeEnum
+    message: str
+    duration: float
+    traceback: str
+
+def create_test_outcome(
+    test: str,
+    outcome: str,
+    message: str,
+    duration: float,
+    traceback: str,
+) -> TestOutcome:
+    return TestOutcome(
+        test=test,
+        outcome=outcome,
+        message=message,
+        duration=duration,
+        traceback=traceback,
+    )
+
+class testRunResultDict(TypedDict):
+    outcome: str
+    tests: TestOutcome
+
+collected_tests = testRunResultDict()
+def pytest_report_teststatus(report, config):
+    # This function is called 3 times per test, during setup, call, and teardown so we only want it recorded once.
+    if report.when == 'call':
+        item_result = create_test_outcome(report.nodeid, report.outcome, report.longreprtext, report.duration, "traceback")
+        collected_tests[report.nodeid] = item_result
+
+def pytest_sessionfinish(session, exitstatus):
+     # This is called when the whole test run finishes.
+    if (exitstatus != 0):
+        print("run finished, num of collected tests # ", len(collected_tests))
+        cwd = os.getcwd()
+        # TODO: add error checking.
+        sendExecutionPost(cwd, exitstatus.name, collected_tests)
+
+
+
 def pytest_collection_finish(session):
     # Called after collection has been performed.
     node: Union[TestNode, None] = build_test_tree(session)[0]
     cwd = pathlib.Path.cwd()
-    if node:
+    #how is pytest collection session different from a run session
+    # session.config.invocation_params.args
+    #probs needs to have a null check here
+    if node and '--collect-only' in session.config.invocation_params.args:
         sendPost(str(cwd), node)
     # TODO: add error checking.
 
@@ -224,3 +280,22 @@ Request-uuid: {testuuid}
     with socket_manager.SocketManager(addr) as s:
         if s.socket is not None:
             s.socket.sendall(request.encode("utf-8"))  # type: ignore
+
+def sendExecutionPost(cwd: str, exitStatus: str, rawData: testRunResultDict) -> None:
+    # Sends a post request as a response to the server.
+    payload: PayloadDict = {"cwd": cwd, "status": exitStatus, "data": rawData}
+    testPort: Union[str, int] = os.getenv("TEST_PORT", 45454)
+    testuuid: Union[str, None] = os.getenv("TEST_UUID")
+    addr = "localhost", int(testPort)
+    data = json.dumps(payload)
+    request = f"""POST / HTTP/1.1
+Host: localhost:{testPort}
+Content-Length: {len(data)}
+Content-Type: application/json
+Request-uuid: {testuuid}
+
+{data}"""
+    with socket_manager.SocketManager(addr) as s:
+        if s.socket is not None:
+            s.socket.sendall(request.encode("utf-8"))  # type: ignore
+    
