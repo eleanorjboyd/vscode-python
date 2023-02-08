@@ -58,7 +58,7 @@ class TestOutcome(TypedDict):
     test: str
     outcome: TestOutcomeEnum
     message: str
-    duration: float
+    subtest: str
     traceback: str
 
 def create_test_outcome(
@@ -84,7 +84,7 @@ collected_tests = testRunResultDict()
 def pytest_report_teststatus(report, config):
     # This function is called 3 times per test, during setup, call, and teardown so we only want it recorded once.
     if report.when == 'call':
-        item_result = create_test_outcome(report.nodeid, report.outcome, report.longreprtext, report.duration, "traceback")
+        item_result = create_test_outcome(report.nodeid, report.outcome, report.longreprtext, None, "traceback")
         collected_tests[report.nodeid] = item_result
 
 def pytest_sessionfinish(session, exitstatus):
@@ -283,7 +283,7 @@ Request-uuid: {testuuid}
 
 def sendExecutionPost(cwd: str, exitStatus: str, rawData: testRunResultDict) -> None:
     # Sends a post request as a response to the server.
-    payload: PayloadDict = {"cwd": cwd, "status": exitStatus, "data": rawData}
+    payload: PayloadDict = {"cwd": cwd, "status": exitStatus, "result": rawData}
     testPort: Union[str, int] = os.getenv("TEST_PORT", 45454)
     testuuid: Union[str, None] = os.getenv("TEST_UUID")
     addr = "localhost", int(testPort)

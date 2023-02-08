@@ -112,6 +112,11 @@ export class WorkspaceTestAdapter {
                     executionFactory,
                 );
             } else {
+                rawTestExecData = await this.executionAdapter.runTests(
+                    this.workspaceUri,
+                    testCaseIds,
+                    debugBool,
+                );
                 traceVerbose('executionFactory is undefined');
             }
             deferred.resolve();
@@ -237,6 +242,7 @@ export class WorkspaceTestAdapter {
             if (executionFactory !== undefined) {
                 rawTestData = await this.discoveryAdapter.discoverTests(this.workspaceUri, executionFactory);
             } else {
+                rawTestData = await this.discoveryAdapter.discoverTests(this.workspaceUri);
                 traceVerbose('executionFactory is undefined');
             }
             deferred.resolve();
