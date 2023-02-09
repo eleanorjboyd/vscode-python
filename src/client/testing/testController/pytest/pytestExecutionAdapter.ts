@@ -28,7 +28,7 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
 
     public onDataReceivedHandler({ cwd, data }: DataReceivedEvent): void {
         if (this.deferred && cwd === this.cwd) {
-            console.log('data received: ', data)
+            console.log('data received: ', data);
             const testData: ExecutionTestPayload = JSON.parse(data);
 
             this.deferred.resolve(testData);
@@ -79,6 +79,7 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
             const execService = await executionFactory?.createActivatedEnvironment(creationOptions);
 
             // const testIdsString: string = testIds.join(' ');
+            console.log(debugBool);
             const ar = ['-m', 'pytest', '-p', 'vscode_pytest'].concat(testIds).concat(pytestArgs);
             try {
                 execService?.exec(ar, spawnOptions);
