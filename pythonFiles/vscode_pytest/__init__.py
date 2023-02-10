@@ -1,4 +1,3 @@
-import enum
 import json
 import os
 import pathlib
@@ -6,12 +5,12 @@ import sys
 
 import pytest
 from _pytest.doctest import DoctestItem
+from testing_tools import socket_manager
 
 DEFAULT_PORT = "45454"
 script_dir = pathlib.Path(__file__).parent.parent
 sys.path.append(os.fspath(script_dir))
 sys.path.append(os.fspath(script_dir / "lib" / "python"))
-
 from typing import Dict, List, Optional, Tuple, Union
 
 import debugpy
@@ -168,7 +167,7 @@ def create_test_node(
     return TestItem(
         {
             "name": test_case.name,
-            "path": test_case.path,
+            "path": os.fsdecode(test_case.path),
             "lineno": test_case_loc,
             "type_": "test",
             "id_": test_case.nodeid,
@@ -187,7 +186,7 @@ def create_session_node(session: pytest.Session) -> TestNode:
     return TestNode(
         {
             "name": session.name,
-            "path": session.path,
+            "path": os.fsdecode(session.path),
             "type_": "folder",
             "children": [],
             "id_": str(session.path),
@@ -205,7 +204,7 @@ def create_class_node(class_module: pytest.Class) -> TestNode:
     return TestNode(
         {
             "name": class_module.name,
-            "path": class_module.path,
+            "path": os.fsdecode(class_module.path),
             "type_": "class",
             "children": [],
             "id_": class_module.nodeid,
@@ -223,7 +222,7 @@ def create_file_node(file_module: pytest.Module) -> TestNode:
     return TestNode(
         {
             "name": file_module.path.name,
-            "path": str(file_module.path),
+            "path": os.fsdecode(file_module.path),
             "type_": "file",
             "id_": str(file_module.path),
             "children": [],
@@ -241,7 +240,7 @@ def create_doc_file_node(file_module: pytest.Module) -> TestNode:
     return TestNode(
         {
             "name": file_module.path.name,
-            "path": file_module.path,
+            "path": os.fsdecode(file_module.path),
             "type_": "doc_file",
             "id_": str(file_module.path),
             "children": [],
@@ -260,7 +259,7 @@ def create_folder_node(folderName: str, path_iterator: pathlib.Path) -> TestNode
     return TestNode(
         {
             "name": folderName,
-            "path": path_iterator,
+            "path": os.fsdecode(path_iterator),
             "type_": "folder",
             "id_": str(path_iterator),
             "children": [],
@@ -278,15 +277,6 @@ class PayloadDict(Dict):
     tests: Optional[TestNode]
     errors: Optional[List[str]]
 
-    def strigify (self) -> str:
-        """
-        Converts the dictionary to a string.
-        """
-        return json.dumps(self)
-    
-    def convert_to_dict(self):
-        return {"cwd": self.cwd, "status": self.status, "tests": self.tests, "errors": self.errors}
-
 
 def post_response(cwd: str, session_node: TestNode) -> None:
     """
@@ -297,25 +287,16 @@ def post_response(cwd: str, session_node: TestNode) -> None:
     session_node -- the session node, which is the top of the testing tree.
     """
     # Sends a post request as a response to the server.
-    dictfor = {"cwd": cwd, "status": "success", "tests": session_node}
     payload = PayloadDict({"cwd": cwd, "status": "success", "tests": session_node})
     testPort: Union[str, int] = os.getenv("TEST_PORT", 45454)
     testuuid: Union[str, None] = os.getenv("TEST_UUID")
     addr = "localhost", int(testPort)
-    try:
-        json.dumps(dictfor)
-        sdfa = payload.convert_to_dict()
-        data33 = json.dumps(sdfa)
-        data1 = payload.strigify()
-        data = json.dumps(payload)
-    except Exception as e:
-        print(e)
+    data = json.dumps(payload)
     request = f"""POST / HTTP/1.1
 Host: localhost:{testPort}
 Content-Length: {len(data)}
 Content-Type: application/json
 Request-uuid: {testuuid}
-
 {data}"""
     with socket_manager.SocketManager(addr) as s:
         if s.socket is not None:
