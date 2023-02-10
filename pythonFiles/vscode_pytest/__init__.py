@@ -1,3 +1,4 @@
+import enum
 import json
 import os
 import pathlib
@@ -13,8 +14,11 @@ script_dir = pathlib.Path(__file__).parent.parent
 sys.path.append(os.fspath(script_dir))
 sys.path.append(os.fspath(script_dir / "lib" / "python"))
 
+import debugpy
 from testing_tools import socket_manager
 
+debugpy.connect(5678)
+debugpy.breakpoint()
 
 class TestData(Dict):
     name: str
@@ -35,6 +39,47 @@ class TestNode(TestData):
 
     children: "List[Union[TestNode, TestItem]]"
 
+# for pytest the outcome for a test is only 'passed', 'skipped' or 'failed'
+class TestOutcome(Dict):
+    test: str
+    outcome: Literal["success", "failure", "skipped"]
+    message: str
+    duration: float
+    traceback: str
+
+def create_test_outcome(
+    test: str,
+    outcome: str,
+    message: str,
+    duration: float,
+    traceback: str,
+) -> TestOutcome:
+    return TestOutcome(
+        test=test,
+        outcome=outcome,
+        message=message,
+        duration=duration,
+        traceback=traceback,
+    )
+
+class testRunResultDict(Dict):
+    outcome: str
+    tests: TestOutcome
+
+collected_tests = testRunResultDict()
+def pytest_report_teststatus(report, config):
+    # This function is called 3 times per test, during setup, call, and teardown so we only want it recorded once.
+    if report.when == 'call':
+        item_result = create_test_outcome(report.nodeid, report.outcome, report.longreprtext, report.duration, "traceback")
+        collected_tests[report.nodeid] = item_result
+
+def pytest_sessionfinish(session, exitstatus):
+     # This is called when the whole test run finishes.
+    print("run finished, num of collected tests # ", len(collected_tests))
+    cwd = os.getcwd()
+    # TODO: add error checking.
+    if exitstatus != 0:
+        sendExecutionPost(cwd, exitstatus.name, collected_tests)
 
 def pytest_collection_finish(session):
     """
@@ -266,11 +311,41 @@ class PayloadDict(Dict):
     """
     A dictionary that is used to send a post request to the server.
     """
-
     cwd: str
     status: Literal["success", "error"]
     tests: Optional[TestNode]
     errors: Optional[List[str]]
+
+class ExecutionPayloadDict(Dict):
+    cwd: str
+    status: Literal["success", "error"]
+    result: Dict[str, Dict[str, str | None]]
+    not_found: Optional[List[str]]
+    error: Optional[str]
+
+
+# In the future these two send post functions should be merged to one
+def sendExecutionPost(cwd, status, tests):
+    print("reach send")
+    testPort = os.getenv("TEST_PORT", 45454)
+    testuuid = os.getenv("TEST_UUID")
+    payload: ExecutionPayloadDict = {"cwd": cwd, "status": status, "result": tests}
+    addr = ("localhost", int(testPort))
+    print("sending post", addr, cwd)
+    # f = open("/Users/eleanorboyd/vscode-python/pythonFiles/vscode_pytest/testeroutput", 'w')
+    # f.write(str(tests))
+    # f.close()
+    data = json.dumps(payload)
+    request = f"""POST / HTTP/1.1
+Host: localhost:{testPort}
+Content-Length: {len(data)}
+Content-Type: application/json
+Request-uuid: {testuuid}
+
+{data}"""
+    with socket_manager.SocketManager(addr) as s:
+        if s.socket is not None:
+            s.socket.sendall(request.encode("utf-8"))  # type: ignore
 
 
 def post_response(cwd: str, session_node: TestNode) -> None:
