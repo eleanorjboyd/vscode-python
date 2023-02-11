@@ -1,4 +1,3 @@
-import enum
 import json
 import os
 import pathlib
@@ -14,10 +13,8 @@ script_dir = pathlib.Path(__file__).parent.parent
 sys.path.append(os.fspath(script_dir))
 sys.path.append(os.fspath(script_dir / "lib" / "python"))
 
-#import debugpy
 from testing_tools import socket_manager
 
-# debugpy.connect(5678)
 
 class TestData(Dict):
     name: str
@@ -40,6 +37,9 @@ class TestNode(TestData):
 
 # for pytest the outcome for a test is only 'passed', 'skipped' or 'failed'
 class TestOutcome(Dict):
+    """
+    A class that handles outcome for a single test.
+    """
     test: str
     outcome: Literal["success", "failure", "skipped"]
     message: str
@@ -53,6 +53,9 @@ def create_test_outcome(
     duration: float,
     traceback: str,
 ) -> TestOutcome:
+    """
+    A function that creates a TestOutcome object.
+    """
     return TestOutcome(
         test=test,
         outcome=outcome,
@@ -62,12 +65,22 @@ def create_test_outcome(
     )
 
 class testRunResultDict(Dict):
+    """
+    A class that stores all test run results.
+    """
     outcome: str
     tests: TestOutcome
 
 collected_tests = testRunResultDict()
 def pytest_report_teststatus(report, config):
-    # This function is called 3 times per test, during setup, call, and teardown so we only want it recorded once.
+    """
+     A pytest hook that is called when a test is called. It is called 3 times per test,
+       during setup, call, and teardown.
+
+     Keyword arguments:
+     report -- the report on the test setup, call, and teardown.
+     config -- configuration object.
+     """
     if report.when == 'call':
         report_value = "skipped"
         if report.passed:
@@ -78,33 +91,22 @@ def pytest_report_teststatus(report, config):
         collected_tests[report.nodeid] = item_result
 
 def pytest_sessionfinish(session, exitstatus):
-     # This is called when the whole test run finishes.
-    print("run finished, num of collected tests # ", len(collected_tests))
+    """
+     A pytest hook that is called after pytest has fulled finished.
+
+     Keyword arguments:
+     session -- the pytest session object.
+     exitstatus -- the status code of the session.
+     """
     cwd = os.getcwd()
     # TODO: add error checking.
     if exitstatus == 0:
+        # This occurs when only collection is done.
         session_node: Union[TestNode, None] = build_test_tree(session)[0]
         if session_node:
-            cwd = pathlib.Path.cwd()
-            post_response(os.fsdecode(cwd), session_node)
+            discovery_post(os.fsdecode(cwd), session_node)
     if exitstatus != 0:
-        sendExecutionPost(cwd, exitstatus.name, collected_tests)
-
-# def pytest_collection_finish(session):
-#     """
-#     A pytest hook that is called after collection has been performed.
-
-#     Keyword arguments:
-#     session -- the pytest session object.
-#     """
-#     # Called after collection has been performed.
-#     session_node: Union[TestNode, None] = build_test_tree(session)[0]
-
-#     if session_node:
-#         cwd = pathlib.Path.cwd()
-#         post_response(os.fsdecode(cwd), session_node)
-#     # TODO: add error checking.
-
+        execution_post(cwd, exitstatus.name, collected_tests)
 
 def build_test_tree(session) -> Tuple[Union[TestNode, None], List[str]]:
     """
@@ -316,9 +318,9 @@ def create_folder_node(folderName: str, path_iterator: pathlib.Path) -> TestNode
     )
 
 
-class PayloadDict(Dict):
+class DiscoveryPayloadDict(Dict):
     """
-    A dictionary that is used to send a post request to the server.
+    A dictionary that is used to send a discovery post request to the server.
     """
     cwd: str
     status: Literal["success", "error"]
@@ -326,24 +328,28 @@ class PayloadDict(Dict):
     errors: Optional[List[str]]
 
 class ExecutionPayloadDict(Dict):
+    """
+    A dictionary that is used to send a execution post request to the server.
+    """
     cwd: str
     status: Literal["success", "error"]
     result: Dict[str, Dict[str, str | None]]
-    not_found: Optional[List[str]]
-    error: Optional[str]
+    not_found: Optional[List[str]] #Currently unused need to check
+    error: Optional[str] #Currently unused need to check
 
+def execution_post(cwd, status, tests):
+    """
+    Sends a post request to the server after the tests have been executed.
 
-# In the future these two send post functions should be merged to one
-def sendExecutionPost(cwd, status, tests):
-    print("reach send")
+    Keyword arguments:
+    cwd -- the current working directory.
+    session_node -- the status of running the tests
+    tests -- the tests that were run and their status.
+    """
     testPort = os.getenv("TEST_PORT", 45454)
     testuuid = os.getenv("TEST_UUID")
     payload: ExecutionPayloadDict = {"cwd": cwd, "status": status, "result": tests}
     addr = ("localhost", int(testPort))
-    print("sending post", addr, cwd)
-    # f = open("/Users/eleanorboyd/vscode-python/pythonFiles/vscode_pytest/testeroutput", 'w')
-    # f.write(str(tests))
-    # f.close()
     data = json.dumps(payload)
     request = f"""POST / HTTP/1.1
 Host: localhost:{testPort}
@@ -357,16 +363,15 @@ Request-uuid: {testuuid}
             s.socket.sendall(request.encode("utf-8"))  # type: ignore
 
 
-def post_response(cwd: str, session_node: TestNode) -> None:
+def discovery_post(cwd: str, session_node: TestNode) -> None:
     """
-    Sends a post request to the server.
+    Sends a post request to the server following a discovery session.
 
     Keyword arguments:
     cwd -- the current working directory.
     session_node -- the session node, which is the top of the testing tree.
     """
-    # Sends a post request as a response to the server.
-    payload = PayloadDict({"cwd": "cwd", "status": "success2", "tests": session_node})
+    payload = DiscoveryPayloadDict({"cwd": "cwd", "status": "success", "tests": session_node})
     testPort: Union[str, int] = os.getenv("TEST_PORT", 45454)
     testuuid: Union[str, None] = os.getenv("TEST_UUID")
     addr = "localhost", int(testPort)

@@ -224,7 +224,6 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
         if (uri) {
             const settings = this.configSettings.getSettings(uri);
             traceVerbose(`Testing: Refreshing test data for ${uri.fsPath}`);
-            console.log("we made it sure?")
             if (settings.testing.pytestEnabled) {
                 // Ensure we send test telemetry if it gets disabled again
                 this.sendTestDisabledTelemetry = true;

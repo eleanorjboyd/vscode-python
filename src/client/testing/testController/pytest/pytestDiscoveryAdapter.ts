@@ -83,7 +83,6 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
                     ['-m', 'pytest', '-p', 'vscode_pytest', '--collect-only'].concat(pytestArgs),
                     spawnOptions,
                 );
-                console.log("hi")
             } catch (ex) {
                 console.error(ex);
             }

@@ -28,7 +28,6 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
 
     public onDataReceivedHandler({ cwd, data }: DataReceivedEvent): void {
         if (this.deferred && cwd === this.cwd) {
-            console.log('data received: ', data);
             const testData: ExecutionTestPayload = JSON.parse(data);
 
             this.deferred.resolve(testData);
