@@ -14,11 +14,10 @@ script_dir = pathlib.Path(__file__).parent.parent
 sys.path.append(os.fspath(script_dir))
 sys.path.append(os.fspath(script_dir / "lib" / "python"))
 
-import debugpy
+#import debugpy
 from testing_tools import socket_manager
 
-debugpy.connect(5678)
-debugpy.breakpoint()
+# debugpy.connect(5678)
 
 class TestData(Dict):
     name: str
@@ -70,7 +69,12 @@ collected_tests = testRunResultDict()
 def pytest_report_teststatus(report, config):
     # This function is called 3 times per test, during setup, call, and teardown so we only want it recorded once.
     if report.when == 'call':
-        item_result = create_test_outcome(report.nodeid, report.outcome, report.longreprtext, report.duration, "traceback")
+        report_value = "skipped"
+        if report.passed:
+            report_value = "success"
+        elif report.failed:
+            report_value = "failure"
+        item_result = create_test_outcome(report.nodeid, report_value, report.longreprtext, report.duration, "traceback")
         collected_tests[report.nodeid] = item_result
 
 def pytest_sessionfinish(session, exitstatus):
@@ -78,23 +82,28 @@ def pytest_sessionfinish(session, exitstatus):
     print("run finished, num of collected tests # ", len(collected_tests))
     cwd = os.getcwd()
     # TODO: add error checking.
+    if exitstatus == 0:
+        session_node: Union[TestNode, None] = build_test_tree(session)[0]
+        if session_node:
+            cwd = pathlib.Path.cwd()
+            post_response(os.fsdecode(cwd), session_node)
     if exitstatus != 0:
         sendExecutionPost(cwd, exitstatus.name, collected_tests)
 
-def pytest_collection_finish(session):
-    """
-    A pytest hook that is called after collection has been performed.
+# def pytest_collection_finish(session):
+#     """
+#     A pytest hook that is called after collection has been performed.
 
-    Keyword arguments:
-    session -- the pytest session object.
-    """
-    # Called after collection has been performed.
-    session_node: Union[TestNode, None] = build_test_tree(session)[0]
+#     Keyword arguments:
+#     session -- the pytest session object.
+#     """
+#     # Called after collection has been performed.
+#     session_node: Union[TestNode, None] = build_test_tree(session)[0]
 
-    if session_node:
-        cwd = pathlib.Path.cwd()
-        post_response(os.fsdecode(cwd), session_node)
-    # TODO: add error checking.
+#     if session_node:
+#         cwd = pathlib.Path.cwd()
+#         post_response(os.fsdecode(cwd), session_node)
+#     # TODO: add error checking.
 
 
 def build_test_tree(session) -> Tuple[Union[TestNode, None], List[str]]:
@@ -357,7 +366,7 @@ def post_response(cwd: str, session_node: TestNode) -> None:
     session_node -- the session node, which is the top of the testing tree.
     """
     # Sends a post request as a response to the server.
-    payload = PayloadDict({"cwd": cwd, "status": "success", "tests": session_node})
+    payload = PayloadDict({"cwd": "cwd", "status": "success2", "tests": session_node})
     testPort: Union[str, int] = os.getenv("TEST_PORT", 45454)
     testuuid: Union[str, None] = os.getenv("TEST_UUID")
     addr = "localhost", int(testPort)
