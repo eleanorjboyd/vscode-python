@@ -68,7 +68,7 @@ export class WorkspaceTestAdapter {
         this.vsIdToRunId = new Map<string, string>();
     }
 
-    // ** add executionFactory?: IPythonExecutionFactory, to the parameters
+    // **add executionFactory?: IPythonExecutionFactory, to the parameters
     public async executeTests(
         testController: TestController,
         runInstance: TestRun,
