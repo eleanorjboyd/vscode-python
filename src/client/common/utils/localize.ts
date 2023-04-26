@@ -351,7 +351,7 @@ export namespace DebugConfigStrings {
         export const enterManagePyPath = {
             title: l10n.t('Debug Django'),
             prompt: l10n.t(
-                "Enter the path to manage.py ('${workspaceFolderToken}' points to the root of the current workspace folder)",
+                "Enter the path to manage.py ('${workspaceFolder}' points to the root of the current workspace folder)",
             ),
             invalid: l10n.t('Enter a valid Python file path'),
         };
@@ -407,9 +407,13 @@ export namespace Testing {
     export const testNotConfigured = l10n.t('No test framework configured.');
     export const cancelUnittestDiscovery = l10n.t('Canceled unittest test discovery');
     export const errorUnittestDiscovery = l10n.t('Unittest test discovery error');
+    export const cancelPytestDiscovery = l10n.t('Canceled pytest test discovery');
+    export const errorPytestDiscovery = l10n.t('pytest test discovery error');
     export const seePythonOutput = l10n.t('(see Output > Python)');
     export const cancelUnittestExecution = l10n.t('Canceled unittest test execution');
     export const errorUnittestExecution = l10n.t('Unittest test execution error');
+    export const cancelPytestExecution = l10n.t('Canceled pytest test execution');
+    export const errorPytestExecution = l10n.t('Pytest test execution error');
 }
 
 export namespace OutdatedDebugger {
