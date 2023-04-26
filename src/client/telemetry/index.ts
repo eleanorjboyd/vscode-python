@@ -825,6 +825,12 @@ export interface IEventNamePropertyMapping {
          * @type {('command' | 'icon')}
          */
         trigger?: 'command' | 'icon';
+        /**
+         * Whether user chose to execute this Python file in a separate terminal or not.
+         *
+         * @type {boolean}
+         */
+        newTerminalPerFile?: boolean;
     };
     /**
      * Telemetry Event sent when user executes code against Django Shell.
@@ -2098,6 +2104,13 @@ export interface IEventNamePropertyMapping {
         environmentType: 'venv' | 'conda' | 'microvenv';
         using: 'pipUpgrade' | 'requirements.txt' | 'pyproject.toml' | 'environment.yml' | 'pipDownload' | 'pipInstall';
     };
+    /**
+     * Telemetry event sent if create environment button was used to trigger the command.
+     */
+    /* __GDPR__
+       "environment.button" : {"owner": "karthiknadig" }
+     */
+    [EventName.ENVIRONMENT_BUTTON]: never | undefined;
     /**
      * Telemetry event sent when a linter or formatter extension is already installed.
      */
