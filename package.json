@@ -2,7 +2,7 @@
     "name": "python",
     "displayName": "Python",
     "description": "IntelliSense (Pylance), Linting, Debugging (multi-threaded, remote), Jupyter Notebooks, code formatting, refactoring, unit tests, and more.",
-    "version": "2023.7.0-dev",
+    "version": "2023.9.0-dev",
     "featureFlags": {
         "usingNewInterpreterStorage": true
     },
@@ -23,7 +23,8 @@
         "envShellEvent",
         "testObserver",
         "quickPickItemTooltip",
-        "envCollectionWorkspace"
+        "envCollectionWorkspace",
+        "saveEditor"
     ],
     "author": {
         "name": "Microsoft Corporation"
@@ -44,7 +45,7 @@
         "theme": "dark"
     },
     "engines": {
-        "vscode": "^1.78.0-20230421"
+        "vscode": "^1.78.0"
     },
     "keywords": [
         "python",
@@ -279,6 +280,11 @@
             },
             {
                 "category": "Python",
+                "command": "python.createEnvironment-button",
+                "title": "%python.command.python.createEnvironment.title%"
+            },
+            {
+                "category": "Python",
                 "command": "python.enableLinting",
                 "title": "%python.command.python.enableLinting.title%"
             },
@@ -297,6 +303,12 @@
                 "command": "python.execInTerminal-icon",
                 "icon": "$(play)",
                 "title": "%python.command.python.execInTerminalIcon.title%"
+            },
+            {
+                "category": "Python",
+                "command": "python.execInDedicatedTerminal",
+                "icon": "$(play)",
+                "title": "%python.command.python.execInDedicatedTerminal.title%"
             },
             {
                 "category": "Python",
@@ -397,6 +409,19 @@
                     "scope": "resource",
                     "type": "array",
                     "uniqueItems": true
+                },
+                "python.createEnvironment.contentButton": {
+                    "default": "show",
+                    "markdownDescription": "%python.createEnvironment.contentButton.description%",
+                    "scope": "machine-overridable",
+                    "type": "string",
+                    "enum": [
+                        "show",
+                        "hide"
+                    ],
+                    "tags": [
+                        "experimental"
+                    ]
                 },
                 "python.condaPath": {
                     "default": "",
@@ -1609,6 +1634,13 @@
                 },
                 {
                     "category": "Python",
+                    "command": "python.execInDedicatedTerminal",
+                    "icon": "$(play)",
+                    "title": "%python.command.python.execInDedicatedTerminal.title%",
+                    "when": "false && editorLangId == python"
+                },
+                {
+                    "category": "Python",
                     "command": "python.debugInTerminal",
                     "icon": "$(debug-alt)",
                     "title": "%python.command.python.debugInTerminal.title%",
@@ -1700,13 +1732,13 @@
             "editor/content": [
                 {
                     "group": "Python",
-                    "command": "python.createEnvironment",
-                    "when": "resourceLangId == pip-requirements && !virtualWorkspace && shellExecutionSupported && !inDiffEditor"
+                    "command": "python.createEnvironment-button",
+                    "when": "showCreateEnvButton && resourceLangId == pip-requirements && !virtualWorkspace && shellExecutionSupported && !inDiffEditor"
                 },
                 {
                     "group": "Python",
-                    "command": "python.createEnvironment",
-                    "when": "resourceFilename == pyproject.toml && pipInstallableToml && !virtualWorkspace && shellExecutionSupported  && !inDiffEditor"
+                    "command": "python.createEnvironment-button",
+                    "when": "showCreateEnvButton && resourceFilename == pyproject.toml && pipInstallableToml && !virtualWorkspace && shellExecutionSupported  && !inDiffEditor"
                 }
             ],
             "editor/context": [
@@ -1763,6 +1795,12 @@
                     "command": "python.execInTerminal-icon",
                     "group": "navigation@0",
                     "title": "%python.command.python.execInTerminalIcon.title%",
+                    "when": "resourceLangId == python && !isInDiffEditor && !virtualWorkspace && shellExecutionSupported"
+                },
+                {
+                    "command": "python.execInDedicatedTerminal",
+                    "group": "navigation@0",
+                    "title": "%python.command.python.execInDedicatedTerminal.title%",
                     "when": "resourceLangId == python && !isInDiffEditor && !virtualWorkspace && shellExecutionSupported"
                 },
                 {
@@ -1915,7 +1953,7 @@
         "@types/md5": "^2.1.32",
         "@types/mocha": "^9.1.0",
         "@types/nock": "^10.0.3",
-        "@types/node": "^14.18.0",
+        "@types/node": "^16.17.0",
         "@types/semver": "^5.5.0",
         "@types/shortid": "^0.0.29",
         "@types/sinon": "^10.0.11",
