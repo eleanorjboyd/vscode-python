@@ -2,7 +2,7 @@
     "name": "python",
     "displayName": "Python",
     "description": "IntelliSense (Pylance), Linting, Debugging (multi-threaded, remote), Jupyter Notebooks, code formatting, refactoring, unit tests, and more.",
-    "version": "2023.7.0-dev",
+    "version": "2023.9.0-dev",
     "featureFlags": {
         "usingNewInterpreterStorage": true
     },
@@ -23,7 +23,8 @@
         "envShellEvent",
         "testObserver",
         "quickPickItemTooltip",
-        "envCollectionWorkspace"
+        "envCollectionWorkspace",
+        "saveEditor"
     ],
     "author": {
         "name": "Microsoft Corporation"
@@ -44,7 +45,7 @@
         "theme": "dark"
     },
     "engines": {
-        "vscode": "^1.78.0-20230421"
+        "vscode": "^1.78.0"
     },
     "keywords": [
         "python",
@@ -275,6 +276,11 @@
             {
                 "category": "Python",
                 "command": "python.createEnvironment",
+                "title": "%python.command.python.createEnvironment.title%"
+            },
+            {
+                "category": "Python",
+                "command": "python.createEnvironment-button",
                 "title": "%python.command.python.createEnvironment.title%"
             },
             {
@@ -1700,12 +1706,12 @@
             "editor/content": [
                 {
                     "group": "Python",
-                    "command": "python.createEnvironment",
+                    "command": "python.createEnvironment-button",
                     "when": "resourceLangId == pip-requirements && !virtualWorkspace && shellExecutionSupported && !inDiffEditor"
                 },
                 {
                     "group": "Python",
-                    "command": "python.createEnvironment",
+                    "command": "python.createEnvironment-button",
                     "when": "resourceFilename == pyproject.toml && pipInstallableToml && !virtualWorkspace && shellExecutionSupported  && !inDiffEditor"
                 }
             ],
@@ -1915,7 +1921,7 @@
         "@types/md5": "^2.1.32",
         "@types/mocha": "^9.1.0",
         "@types/nock": "^10.0.3",
-        "@types/node": "^14.18.0",
+        "@types/node": "^16.17.0",
         "@types/semver": "^5.5.0",
         "@types/shortid": "^0.0.29",
         "@types/sinon": "^10.0.11",
