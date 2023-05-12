@@ -112,7 +112,6 @@ export class WorkspaceService implements IWorkspaceService {
         const enabledSearchExcludes = Object.keys(searchExcludes).filter((key) => searchExcludes.get(key) === true);
         return `{${enabledSearchExcludes.join(',')}}`;
     }
-
     public async save(uri: Uri): Promise<Uri | undefined> {
         try {
             // This is a proposed API hence putting it inside try...catch.
