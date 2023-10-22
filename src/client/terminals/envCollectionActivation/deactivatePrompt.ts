@@ -2,7 +2,16 @@
 // Licensed under the MIT License.
 
 import { inject, injectable } from 'inversify';
-import { Position, Uri, WorkspaceEdit, Range, TextEditorRevealType, ProgressLocation, Terminal } from 'vscode';
+import {
+    Position,
+    Uri,
+    WorkspaceEdit,
+    Range,
+    TextEditorRevealType,
+    ProgressLocation,
+    Terminal,
+    Selection,
+} from 'vscode';
 import {
     IApplicationEnvironment,
     IApplicationShell,
@@ -25,6 +34,8 @@ import { isTestExecution } from '../../common/constants';
 import { ProgressService } from '../../common/application/progressService';
 import { copyFile, createFile, pathExists } from '../../common/platform/fs-paths';
 import { getOSType, OSType } from '../../common/utils/platform';
+import { sendTelemetryEvent } from '../../telemetry';
+import { EventName } from '../../telemetry/constants';
 
 export const terminalDeactivationPromptKey = 'TERMINAL_DEACTIVATION_PROMPT_KEY';
 @injectable()
@@ -106,12 +117,20 @@ export class TerminalDeactivateLimitationPrompt implements IExtensionSingleActiv
             // Shell integration is not supported for these shells, in which case this workaround won't work.
             return;
         }
+        const telemetrySelections: ['Edit script', "Don't show again"] = ['Edit script', "Don't show again"];
         const { initScript, source, destination } = scriptInfo;
         const prompts = [Common.editSomething.format(initScript.displayName), Common.doNotShowAgain];
         const selection = await this.appShell.showWarningMessage(
             Interpreters.terminalDeactivatePrompt.format(initScript.displayName),
             ...prompts,
         );
+        let index = selection ? prompts.indexOf(selection) : 0;
+        if (selection === prompts[0]) {
+            index = 0;
+        }
+        sendTelemetryEvent(EventName.TERMINAL_DEACTIVATE_PROMPT, undefined, {
+            selection: selection ? telemetrySelections[index] : undefined,
+        });
         if (!selection) {
             return;
         }
@@ -141,12 +160,17 @@ ${content}
         // If script already has the hook, don't add it again.
         const editor = await this.documentManager.showTextDocument(document);
         if (document.getText().includes(hookMarker)) {
+            editor.revealRange(
+                new Range(new Position(document.lineCount - 3, 0), new Position(document.lineCount, 0)),
+                TextEditorRevealType.AtTop,
+            );
             return;
         }
         const editorEdit = new WorkspaceEdit();
         editorEdit.insert(document.uri, new Position(document.lineCount, 0), content);
         await this.documentManager.applyEdit(editorEdit);
         // Reveal the edits.
+        editor.selection = new Selection(new Position(document.lineCount - 3, 0), new Position(document.lineCount, 0));
         editor.revealRange(
             new Range(new Position(document.lineCount - 3, 0), new Position(document.lineCount, 0)),
             TextEditorRevealType.AtTop,

@@ -3,7 +3,7 @@
 
 import json
 import os
-import pathlib
+import pathlib # TODO: pathlib added in python v3.4 - this file used to used os.path.dirname | commit/0b6fc5b44c70fed32294b460e3ea45854ae220e4
 import sys
 import traceback
 import unittest
@@ -18,6 +18,8 @@ from typing_extensions import Literal, NotRequired, TypedDict
 
 # If I use from utils then there will be an import error in test_discovery.py.
 from unittestadapter.utils import TestNode, build_test_tree, parse_unittest_args
+
+from unittestadapter.django_runner import setup_django_env
 
 DEFAULT_PORT = 45454
 
@@ -46,7 +48,7 @@ def discover_tests(
     - cwd: Absolute path to the test start directory;
     - uuid: UUID sent by the caller of the Python script, that needs to be sent back as an integrity check;
     - status: Test discovery status, can be "success" or "error";
-    - tests: Discoverered tests if any, not present otherwise. Note that the status can be "error" but the payload can still contain tests;
+    - tests: Discovered tests if any, not present otherwise. Note that the status can be "error" but the payload can still contain tests;
     - error: Discovery error if any, not present otherwise.
 
     Payload format for a successful discovery:
@@ -78,7 +80,7 @@ def discover_tests(
         loader = unittest.TestLoader()
         suite = loader.discover(start_dir, pattern, top_level_dir)
 
-        tests, error = build_test_tree(suite, cwd)  # test tree built succesfully here.
+        tests, error = build_test_tree(suite, cwd)  # test tree built successfully here.
 
     except Exception:
         error.append(traceback.format_exc())
@@ -120,6 +122,12 @@ if __name__ == "__main__":
     index = argv.index("--udiscovery")
 
     start_dir, pattern, top_level_dir = parse_unittest_args(argv[index + 1 :])
+
+    django_test_enabled = os.environ.get("DJANGO_TEST_ENABLED", "False")
+    if django_test_enabled.lower() == "true":
+        print(f"DJANGO TEST DECLEARED = {django_test_enabled}")
+        django_env_enabled = setup_django_env(start_dir)
+        print(f"DJANGO ENV ENABLED = {django_env_enabled}")
 
     testPort = int(os.environ.get("TEST_PORT", DEFAULT_PORT))
     testUuid = os.environ.get("TEST_UUID")

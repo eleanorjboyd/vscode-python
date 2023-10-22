@@ -9,6 +9,24 @@ pattern = sys.argv[2]
 top_level_dir = sys.argv[3] if len(sys.argv) >= 4 else None
 sys.path.insert(0, os.getcwd())
 
+import os.path
+
+sys.path.insert(
+    1,
+    os.path.dirname(  # pythonFiles
+        os.path.dirname(  # pythonFiles/testing_tools
+            os.path.abspath(__file__)  # this file
+        )
+    ),
+)
+
+from django_runner import setup_django_env
+
+django_test_enabled = os.environ.get("DJANGO_TEST_ENABLED", "False")
+if django_test_enabled.lower() == "true":
+    print(f"DJANGO TEST DECLEARED = {django_test_enabled}")
+    django_env_enabled = setup_django_env(start_dir)
+    print(f"DJANGO ENV ENABLED = {django_env_enabled}")
 
 def get_sourceline(obj):
     try:

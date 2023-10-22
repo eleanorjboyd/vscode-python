@@ -182,12 +182,23 @@ export class PythonTestServer implements ITestServer, Disposable {
         const { uuid } = options;
         const isDiscovery = (testIds === undefined || testIds.length === 0) && runTestIdPort === undefined;
         const mutableEnv = { ...env };
-        const pythonPathParts: string[] = process.env.PYTHONPATH?.split(path.delimiter) ?? [];
+        // get python path from mutable env, it contains process.env as well
+        const pythonPathParts: string[] = mutableEnv.PYTHONPATH?.split(path.delimiter) ?? [];
         const pythonPathCommand = [options.cwd, ...pythonPathParts].join(path.delimiter);
         mutableEnv.PYTHONPATH = pythonPathCommand;
         mutableEnv.TEST_UUID = uuid.toString();
         mutableEnv.TEST_PORT = this.getPort().toString();
         mutableEnv.RUN_TEST_IDS_PORT = runTestIdPort;
+
+        const isRun = runTestIdPort !== undefined;
+
+        // NEEDS TO BE UNCOMMENTED TO GET DJANGO WORKING
+        // if (isRun) {
+        //     mutableEnv.DJANGO_TEST_ENABLED = 'true';
+        //     mutableEnv.MANAGE_PY_PATH = [options.cwd, 'manage.py'].join('/');
+        //     console.log('DJANGO_TEST_ENABLED', mutableEnv.DJANGO_TEST_ENABLED);
+        //     console.log('MANAGE_PY_PATH', mutableEnv.MANAGE_PY_PATH);
+        // }
 
         const spawnOptions: SpawnOptions = {
             token: options.token,
@@ -196,7 +207,7 @@ export class PythonTestServer implements ITestServer, Disposable {
             outputChannel: options.outChannel,
             env: mutableEnv,
         };
-        const isRun = runTestIdPort !== undefined;
+
         // Create the Python environment in which to execute the command.
         const creationOptions: ExecutionFactoryCreateWithEnvironmentOptions = {
             allowEnvironmentFetchExceptions: false,
