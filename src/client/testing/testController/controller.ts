@@ -258,7 +258,11 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
     }
 
     private async refreshTestDataInternal(uri?: Resource): Promise<void> {
+        // the refresh ends up here (after being called on file save), the uri is of the file
+        // this method is confusing, it contains old and new code from before and after the rewrite, please make
+        // sure to focus on the rewrite as this will be the code we will keep moving forward
         this.refreshingStartedEvent.fire();
+        // refresh button = uri is undefined
         if (uri) {
             const settings = this.configSettings.getSettings(uri);
             const workspace = this.workspaceService.getWorkspaceFolder(uri);
@@ -268,14 +272,17 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
             // ** experiment to roll out NEW test discovery mechanism
             if (settings.testing.pytestEnabled) {
                 if (pythonTestAdapterRewriteEnabled(this.serviceContainer)) {
+                    // this here is where the rewrite is enabled
                     traceInfo(`Running discovery for pytest using the new test adapter.`);
                     if (workspace && workspace.uri) {
                         const testAdapter = this.testAdapters.get(workspace.uri);
                         if (testAdapter) {
+                            // this calls discovery, it need to be updated to include the file uri
                             testAdapter.discoverTests(
                                 this.testController,
                                 this.refreshCancellation.token,
                                 this.pythonExecFactory,
+                                uri,
                             );
                         } else {
                             traceError('Unable to find test adapter for workspace.');
@@ -317,6 +324,7 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
                 // This handles the case where user removes test settings. Which should remove the
                 // tests for that particular case from the tree view
                 if (workspace) {
+                    console.log('no longer deleting workspace', workspace);
                     const toDelete: string[] = [];
                     this.testController.items.forEach((i: TestItem) => {
                         const w = this.workspaceService.getWorkspaceFolder(i.uri);
@@ -549,11 +557,13 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
     }
 
     private watchForTestContentChangeOnSave(): void {
+        // When a file is saved, it will trigger this action
         this.disposables.push(
             onDidSaveTextDocument(async (doc: TextDocument) => {
                 if (doc.fileName.endsWith('.py')) {
                     traceVerbose(`Testing: Trigger refresh after saving ${doc.uri.fsPath}`);
                     this.sendTriggerTelemetry('watching');
+                    // it will call refresh and add the doc.uri (the file uri being saved)
                     this.refreshData.trigger(doc.uri, false);
                 }
             }),

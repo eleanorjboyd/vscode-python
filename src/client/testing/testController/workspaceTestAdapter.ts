@@ -114,7 +114,10 @@ export class WorkspaceTestAdapter {
         testController: TestController,
         token?: CancellationToken,
         executionFactory?: IPythonExecutionFactory,
+        fileUri?: Uri,
     ): Promise<void> {
+        // Here is where discover tests goes when called by the controller
+        // this then determines which adapter to use (either the run or discovery one)
         sendTelemetryEvent(EventName.UNITTEST_DISCOVERING, undefined, { tool: this.testProvider });
 
         // Discovery is expensive. If it is already running, use the existing promise.
@@ -128,8 +131,10 @@ export class WorkspaceTestAdapter {
         try {
             // ** execution factory only defined for new rewrite way
             if (executionFactory !== undefined) {
-                await this.discoveryAdapter.discoverTests(this.workspaceUri, executionFactory);
+                // goes here
+                await this.discoveryAdapter.discoverTests(this.workspaceUri, executionFactory, fileUri);
             } else {
+                // ignore this, it is the old way
                 await this.discoveryAdapter.discoverTests(this.workspaceUri);
             }
             deferred.resolve();

@@ -269,7 +269,18 @@ export function populateTestTree(
                 resultResolver.runIdToVSid.set(child.runID, child.id_);
                 resultResolver.vsIdToRunId.set(child.id_, child.runID);
             } else {
-                let node = testController.items.get(child.path);
+                // testRoot.children.get(child.path);
+                let node = testRoot!.children.get(child.path);
+                if (node !== undefined) {
+                    console.log('WE MADE IT');
+                }
+                if (child.path.includes('.py')) {
+                    console.log('IS A FILE DELETE CHIDLREN');
+                    // delete the given file node from the children of its parent
+                    testRoot!.children.delete(child.path);
+                    // mark the node as undefined so a new node must be created below
+                    node = undefined;
+                }
 
                 if (!node) {
                     node = testController.createTestItem(child.id_, child.name, Uri.file(child.path));
@@ -323,6 +334,14 @@ export function createDiscoveryErrorPayload(
         error: [
             ` \n The python test process was terminated before it could exit on its own, the process errored with: Code: ${code}, Signal: ${signal} for workspace ${cwd}`,
         ],
+    };
+}
+
+export function createEmptyFileDiscoveryPayload(cwd: string, fileUri: Uri): DiscoveredTestPayload {
+    return {
+        cwd,
+        status: 'error-empty',
+        error: [fileUri.fsPath],
     };
 }
 

@@ -211,7 +211,7 @@ export interface ITestResultResolver {
 export interface ITestDiscoveryAdapter {
     // ** first line old method signature, second line new method signature
     discoverTests(uri: Uri): Promise<DiscoveredTestPayload>;
-    discoverTests(uri: Uri, executionFactory: IPythonExecutionFactory): Promise<DiscoveredTestPayload>;
+    discoverTests(uri: Uri, executionFactory: IPythonExecutionFactory, fileUri?: Uri): Promise<DiscoveredTestPayload>;
 }
 
 // interface for execution/runner adapter
@@ -251,7 +251,7 @@ export type DiscoveredTestNode = DiscoveredTestCommon & {
 export type DiscoveredTestPayload = {
     cwd: string;
     tests?: DiscoveredTestNode;
-    status: 'success' | 'error';
+    status: 'success' | 'error' | 'error-empty';
     error?: string[];
 };
 
