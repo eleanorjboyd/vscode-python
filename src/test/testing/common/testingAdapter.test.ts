@@ -7,9 +7,7 @@ import * as path from 'path';
 import * as assert from 'assert';
 import { PytestTestDiscoveryAdapter } from '../../../client/testing/testController/pytest/pytestDiscoveryAdapter';
 import { ITestController, ITestResultResolver } from '../../../client/testing/testController/common/types';
-import { PythonTestServer } from '../../../client/testing/testController/common/server';
 import { IPythonExecutionFactory } from '../../../client/common/process/types';
-import { ITestDebugLauncher } from '../../../client/testing/common/types';
 import { IConfigurationService, ITestOutputChannel } from '../../../client/common/types';
 import { IServiceContainer } from '../../../client/ioc/types';
 import { EXTENSION_ROOT_DIR_FOR_TESTS, initialize } from '../../initialize';
@@ -24,9 +22,7 @@ import { IEnvironmentVariablesProvider } from '../../../client/common/variables/
 
 suite('End to End Tests: test adapters', () => {
     let resultResolver: ITestResultResolver;
-    let pythonTestServer: PythonTestServer;
     let pythonExecFactory: IPythonExecutionFactory;
-    let debugLauncher: ITestDebugLauncher;
     let configService: IConfigurationService;
     let serviceContainer: IServiceContainer;
     let envVarsService: IEnvironmentVariablesProvider;
@@ -67,13 +63,10 @@ suite('End to End Tests: test adapters', () => {
         // create objects that were injected
         configService = serviceContainer.get<IConfigurationService>(IConfigurationService);
         pythonExecFactory = serviceContainer.get<IPythonExecutionFactory>(IPythonExecutionFactory);
-        debugLauncher = serviceContainer.get<ITestDebugLauncher>(ITestDebugLauncher);
         testController = serviceContainer.get<TestController>(ITestController);
         envVarsService = serviceContainer.get<IEnvironmentVariablesProvider>(IEnvironmentVariablesProvider);
 
         // create objects that were not injected
-        pythonTestServer = new PythonTestServer(pythonExecFactory, debugLauncher);
-        await pythonTestServer.serverReady();
 
         testOutputChannel = typeMoq.Mock.ofType<ITestOutputChannel>();
         testOutputChannel
@@ -93,9 +86,6 @@ suite('End to End Tests: test adapters', () => {
                 // Whatever you need to return
             });
     });
-    teardown(async () => {
-        pythonTestServer.dispose();
-    });
     test('unittest discovery adapter small workspace', async () => {
         // result resolver and saved data for assertions
         let actualData: {
@@ -107,6 +97,7 @@ suite('End to End Tests: test adapters', () => {
         workspaceUri = Uri.parse(rootPathSmallWorkspace);
         resultResolver = new PythonResultResolver(testController, unittestProvider, workspaceUri);
         let callCount = 0;
+        // const deferredTillEOT = createTestingDeferred();
         resultResolver._resolveDiscovery = async (payload, _token?) => {
             traceLog(`resolveDiscovery ${payload}`);
             callCount = callCount + 1;
@@ -120,14 +111,13 @@ suite('End to End Tests: test adapters', () => {
 
         // run unittest discovery
         const discoveryAdapter = new UnittestTestDiscoveryAdapter(
-            pythonTestServer,
             configService,
             testOutputChannel.object,
             resultResolver,
             envVarsService,
         );
 
-        await discoveryAdapter.discoverTests(workspaceUri).finally(() => {
+        await discoveryAdapter.discoverTests(workspaceUri, pythonExecFactory).finally(() => {
             // verification after discovery is complete
 
             // 1. Check the status is "success"
@@ -167,14 +157,13 @@ suite('End to End Tests: test adapters', () => {
         configService.getSettings(workspaceUri).testing.unittestArgs = ['-s', '.', '-p', '*test*.py'];
         // run discovery
         const discoveryAdapter = new UnittestTestDiscoveryAdapter(
-            pythonTestServer,
             configService,
             testOutputChannel.object,
             resultResolver,
             envVarsService,
         );
 
-        await discoveryAdapter.discoverTests(workspaceUri).finally(() => {
+        await discoveryAdapter.discoverTests(workspaceUri, pythonExecFactory).finally(() => {
             // 1. Check the status is "success"
             assert.strictEqual(
                 actualData.status,
@@ -197,25 +186,24 @@ suite('End to End Tests: test adapters', () => {
             status: 'success' | 'error';
             error?: string[];
         };
+        // set workspace to test workspace folder
+        workspaceUri = Uri.parse(rootPathSmallWorkspace);
         resultResolver = new PythonResultResolver(testController, pytestProvider, workspaceUri);
         let callCount = 0;
         resultResolver._resolveDiscovery = async (payload, _token?) => {
-            traceLog(`resolveDiscovery ${payload}`);
+            console.log(`resolveDiscovery ${payload}`);
             callCount = callCount + 1;
             actualData = payload;
             return Promise.resolve();
         };
         // run pytest discovery
         const discoveryAdapter = new PytestTestDiscoveryAdapter(
-            pythonTestServer,
             configService,
             testOutputChannel.object,
             resultResolver,
             envVarsService,
         );
 
-        // set workspace to test workspace folder
-        workspaceUri = Uri.parse(rootPathSmallWorkspace);
         await discoveryAdapter.discoverTests(workspaceUri, pythonExecFactory).finally(() => {
             // verification after discovery is complete
 
@@ -250,7 +238,6 @@ suite('End to End Tests: test adapters', () => {
         };
         // run pytest discovery
         const discoveryAdapter = new PytestTestDiscoveryAdapter(
-            pythonTestServer,
             configService,
             testOutputChannel.object,
             resultResolver,
@@ -304,7 +291,6 @@ suite('End to End Tests: test adapters', () => {
         configService.getSettings(workspaceUri).testing.unittestArgs = ['-s', '.', '-p', '*test*.py'];
         // run execution
         const executionAdapter = new UnittestTestExecutionAdapter(
-            pythonTestServer,
             configService,
             testOutputChannel.object,
             resultResolver,
@@ -328,7 +314,13 @@ suite('End to End Tests: test adapters', () => {
             })
             .returns(() => false);
         await executionAdapter
-            .runTests(workspaceUri, ['test_simple.SimpleClass.test_simple_unit'], false, testRun.object)
+            .runTests(
+                workspaceUri,
+                ['test_simple.SimpleClass.test_simple_unit'],
+                false,
+                testRun.object,
+                pythonExecFactory,
+            )
             .finally(() => {
                 // verify that the _resolveExecution was called once per test
                 assert.strictEqual(callCount, 1, 'Expected _resolveExecution to be called once');
@@ -379,7 +371,6 @@ suite('End to End Tests: test adapters', () => {
 
         // run unittest execution
         const executionAdapter = new UnittestTestExecutionAdapter(
-            pythonTestServer,
             configService,
             testOutputChannel.object,
             resultResolver,
@@ -403,7 +394,13 @@ suite('End to End Tests: test adapters', () => {
             })
             .returns(() => false);
         await executionAdapter
-            .runTests(workspaceUri, ['test_parameterized_subtest.NumbersTest.test_even'], false, testRun.object)
+            .runTests(
+                workspaceUri,
+                ['test_parameterized_subtest.NumbersTest.test_even'],
+                false,
+                testRun.object,
+                pythonExecFactory,
+            )
             .then(() => {
                 // verify that the _resolveExecution was called once per test
                 assert.strictEqual(callCount, 2000, 'Expected _resolveExecution to be called once');
@@ -448,7 +445,6 @@ suite('End to End Tests: test adapters', () => {
 
         // run pytest execution
         const executionAdapter = new PytestTestExecutionAdapter(
-            pythonTestServer,
             configService,
             testOutputChannel.object,
             resultResolver,
@@ -545,7 +541,6 @@ suite('End to End Tests: test adapters', () => {
 
         // run pytest execution
         const executionAdapter = new PytestTestExecutionAdapter(
-            pythonTestServer,
             configService,
             testOutputChannel.object,
             resultResolver,
@@ -617,7 +612,6 @@ suite('End to End Tests: test adapters', () => {
         workspaceUri = Uri.parse(rootPathDiscoveryErrorWorkspace);
 
         const discoveryAdapter = new UnittestTestDiscoveryAdapter(
-            pythonTestServer,
             configService,
             testOutputChannel.object,
             resultResolver,
@@ -632,7 +626,7 @@ suite('End to End Tests: test adapters', () => {
                         onCancellationRequested: () => undefined,
                     } as any),
             );
-        await discoveryAdapter.discoverTests(workspaceUri).finally(() => {
+        await discoveryAdapter.discoverTests(workspaceUri, pythonExecFactory).finally(() => {
             assert.strictEqual(callCount, 1, 'Expected _resolveDiscovery to be called once');
             assert.strictEqual(failureOccurred, false, failureMsg);
         });
@@ -677,7 +671,6 @@ suite('End to End Tests: test adapters', () => {
         };
         // run pytest discovery
         const discoveryAdapter = new PytestTestDiscoveryAdapter(
-            pythonTestServer,
             configService,
             testOutputChannel.object,
             resultResolver,
@@ -750,7 +743,6 @@ suite('End to End Tests: test adapters', () => {
 
         // run pytest execution
         const executionAdapter = new UnittestTestExecutionAdapter(
-            pythonTestServer,
             configService,
             testOutputChannel.object,
             resultResolver,
@@ -765,7 +757,7 @@ suite('End to End Tests: test adapters', () => {
                         onCancellationRequested: () => undefined,
                     } as any),
             );
-        await executionAdapter.runTests(workspaceUri, testIds, false, testRun.object).finally(() => {
+        await executionAdapter.runTests(workspaceUri, testIds, false, testRun.object, pythonExecFactory).finally(() => {
             assert.strictEqual(callCount, 1, 'Expected _resolveExecution to be called once');
             assert.strictEqual(failureOccurred, false, failureMsg);
         });
@@ -800,7 +792,7 @@ suite('End to End Tests: test adapters', () => {
                 failureMsg = err ? (err as Error).toString() : '';
                 failureOccurred = true;
             }
-            return Promise.resolve();
+            // return Promise.resolve();
         };
 
         const testId = `${rootPathErrorWorkspace}/test_seg_fault.py::TestSegmentationFault::test_segfault`;
@@ -811,7 +803,6 @@ suite('End to End Tests: test adapters', () => {
 
         // run pytest execution
         const executionAdapter = new PytestTestExecutionAdapter(
-            pythonTestServer,
             configService,
             testOutputChannel.object,
             resultResolver,

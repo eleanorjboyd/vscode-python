@@ -8,7 +8,6 @@ import * as sinon from 'sinon';
 import * as path from 'path';
 import { Observable } from 'rxjs/Observable';
 import { IConfigurationService, ITestOutputChannel } from '../../../../client/common/types';
-import { ITestServer } from '../../../../client/testing/testController/common/types';
 import {
     IPythonExecutionFactory,
     IPythonExecutionService,
@@ -24,7 +23,7 @@ import { MockChildProcess } from '../../../mocks/mockChildProcess';
 import { traceInfo } from '../../../../client/logging';
 
 suite('pytest test execution adapter', () => {
-    let testServer: typeMoq.IMock<ITestServer>;
+    // let testServer: typeMoq.IMock<ITestServer>;
     let configService: IConfigurationService;
     let execFactory = typeMoq.Mock.ofType<IPythonExecutionFactory>();
     let adapter: PytestTestExecutionAdapter;
@@ -35,17 +34,18 @@ suite('pytest test execution adapter', () => {
     (global as any).EXTENSION_ROOT_DIR = EXTENSION_ROOT_DIR;
     let myTestPath: string;
     let mockProc: MockChildProcess;
-    let utilsStartServerStub: sinon.SinonStub;
+    let utilsStartTestIdsNamedPipeStub: sinon.SinonStub;
+    let utilsStartRunResultNamedPipeStub: sinon.SinonStub;
     setup(() => {
-        testServer = typeMoq.Mock.ofType<ITestServer>();
-        testServer.setup((t) => t.getPort()).returns(() => 12345);
-        testServer
-            .setup((t) => t.onRunDataReceived(typeMoq.It.isAny(), typeMoq.It.isAny()))
-            .returns(() => ({
-                dispose: () => {
-                    /* no-body */
-                },
-            }));
+        // testServer = typeMoq.Mock.ofType<ITestServer>();
+        // testServer.setup((t) => t.getPort()).returns(() => 12345);
+        // testServer
+        //     .setup((t) => t.onRunDataReceived(typeMoq.It.isAny(), typeMoq.It.isAny()))
+        //     .returns(() => ({
+        //         dispose: () => {
+        //             /* no-body */
+        //         },
+        //     }));
         configService = ({
             getSettings: () => ({
                 testing: { pytestArgs: ['.'] },
@@ -75,7 +75,9 @@ suite('pytest test execution adapter', () => {
                 };
             });
         execFactory = typeMoq.Mock.ofType<IPythonExecutionFactory>();
-        utilsStartServerStub = sinon.stub(util, 'startTestIdServer');
+
+        // added
+        utilsStartTestIdsNamedPipeStub = sinon.stub(util, 'startTestIdsNamedPipe');
         debugLauncher = typeMoq.Mock.ofType<ITestDebugLauncher>();
         execFactory
             .setup((x) => x.createActivatedEnvironment(typeMoq.It.isAny()))
@@ -91,6 +93,16 @@ suite('pytest test execution adapter', () => {
         execService.setup((p) => ((p as unknown) as any).then).returns(() => undefined);
         debugLauncher.setup((p) => ((p as unknown) as any).then).returns(() => undefined);
         myTestPath = path.join('/', 'my', 'test', 'path', '/');
+
+        utilsStartRunResultNamedPipeStub = sinon.stub(util, 'startRunResultNamedPipe');
+        utilsStartRunResultNamedPipeStub.callsFake(() =>
+            Promise.resolve({
+                name: 'runResultPipe-mockName',
+                dispose: () => {
+                    /* no-op */
+                },
+            }),
+        );
     });
     teardown(() => {
         sinon.restore();
@@ -105,25 +117,28 @@ suite('pytest test execution adapter', () => {
                 deferred2.resolve();
                 return Promise.resolve(execService.object);
             });
-        utilsStartServerStub.callsFake(() => {
+        // utilsStartServerStub.callsFake(() => {
+        //     deferred3.resolve();
+        //     return Promise.resolve(54321);
+        // });
+        utilsStartTestIdsNamedPipeStub.callsFake(() => {
             deferred3.resolve();
-            return Promise.resolve(54321);
+            return Promise.resolve({
+                name: 'mockName',
+                dispose: () => {
+                    /* no-op */
+                },
+            });
         });
         const testRun = typeMoq.Mock.ofType<TestRun>();
         testRun.setup((t) => t.token).returns(() => ({ onCancellationRequested: () => undefined } as any));
         const uri = Uri.file(myTestPath);
-        const uuid = 'uuid123';
-        testServer
-            .setup((t) => t.onRunDataReceived(typeMoq.It.isAny(), typeMoq.It.isAny()))
-            .returns(() => ({
-                dispose: () => {
-                    /* no-body */
-                },
-            }));
-        testServer.setup((t) => t.createUUID(typeMoq.It.isAny())).returns(() => uuid);
         const outputChannel = typeMoq.Mock.ofType<ITestOutputChannel>();
-        adapter = new PytestTestExecutionAdapter(testServer.object, configService, outputChannel.object);
+        adapter = new PytestTestExecutionAdapter(configService, outputChannel.object);
         const testIds = ['test1id', 'test2id'];
+
+        // Now you can use mockFunction in place of the real startRunResultNamedPipe function.
+
         adapter.runTests(uri, testIds, false, testRun.object, execFactory.object);
 
         // add in await and trigger
@@ -132,7 +147,7 @@ suite('pytest test execution adapter', () => {
         mockProc.trigger('close');
 
         // assert
-        sinon.assert.calledWithExactly(utilsStartServerStub, testIds);
+        sinon.assert.calledWithExactly(utilsStartTestIdsNamedPipeStub, testIds);
     });
     test('pytest execution called with correct args', async () => {
         const deferred2 = createDeferred();
@@ -144,24 +159,28 @@ suite('pytest test execution adapter', () => {
                 deferred2.resolve();
                 return Promise.resolve(execService.object);
             });
-        utilsStartServerStub.callsFake(() => {
+        // utilsStartServerStub.callsFake(() => {
+        //     deferred3.resolve();
+        //     return Promise.resolve(54321);
+        // });
+        utilsStartTestIdsNamedPipeStub.callsFake(() => {
             deferred3.resolve();
-            return Promise.resolve(54321);
+            return Promise.resolve('testIdPipe-mockName');
         });
         const testRun = typeMoq.Mock.ofType<TestRun>();
         testRun.setup((t) => t.token).returns(() => ({ onCancellationRequested: () => undefined } as any));
         const uri = Uri.file(myTestPath);
-        const uuid = 'uuid123';
-        testServer
-            .setup((t) => t.onRunDataReceived(typeMoq.It.isAny(), typeMoq.It.isAny()))
-            .returns(() => ({
-                dispose: () => {
-                    /* no-body */
-                },
-            }));
-        testServer.setup((t) => t.createUUID(typeMoq.It.isAny())).returns(() => uuid);
+        // const uuid = 'uuid123';
+        // testServer
+        //     .setup((t) => t.onRunDataReceived(typeMoq.It.isAny(), typeMoq.It.isAny()))
+        //     .returns(() => ({
+        //         dispose: () => {
+        //             /* no-body */
+        //         },
+        //     }));
+        // testServer.setup((t) => t.createUUID(typeMoq.It.isAny())).returns(() => uuid);
         const outputChannel = typeMoq.Mock.ofType<ITestOutputChannel>();
-        adapter = new PytestTestExecutionAdapter(testServer.object, configService, outputChannel.object);
+        adapter = new PytestTestExecutionAdapter(configService, outputChannel.object);
         adapter.runTests(uri, [], false, testRun.object, execFactory.object);
 
         await deferred2.promise;
@@ -174,8 +193,9 @@ suite('pytest test execution adapter', () => {
         const expectedArgs = [pathToPythonScript, '--rootdir', myTestPath];
         const expectedExtraVariables = {
             PYTHONPATH: pathToPythonFiles,
-            TEST_UUID: 'uuid123',
-            TEST_PORT: '12345',
+            TEST_RUN_PIPE: 'runResultPipe-mockName',
+            RUN_TEST_IDS_PIPE: 'testIdPipe-mockName',
+            // TEST_PORT: '12345',
         };
         execService.verify(
             (x) =>
@@ -183,9 +203,8 @@ suite('pytest test execution adapter', () => {
                     expectedArgs,
                     typeMoq.It.is<SpawnOptions>((options) => {
                         assert.equal(options.env?.PYTHONPATH, expectedExtraVariables.PYTHONPATH);
-                        assert.equal(options.env?.TEST_UUID, expectedExtraVariables.TEST_UUID);
-                        assert.equal(options.env?.TEST_PORT, expectedExtraVariables.TEST_PORT);
-                        assert.equal(options.env?.RUN_TEST_IDS_PORT, '54321');
+                        assert.equal(options.env?.TEST_RUN_PIPE, expectedExtraVariables.TEST_RUN_PIPE);
+                        assert.equal(options.env?.RUN_TEST_IDS_PIPE, expectedExtraVariables.RUN_TEST_IDS_PIPE);
                         assert.equal(options.cwd, uri.fsPath);
                         assert.equal(options.throwOnStdErr, true);
                         return true;
@@ -204,9 +223,13 @@ suite('pytest test execution adapter', () => {
                 deferred2.resolve();
                 return Promise.resolve(execService.object);
             });
-        utilsStartServerStub.callsFake(() => {
+        // utilsStartServerStub.callsFake(() => {
+        //     deferred3.resolve();
+        //     return Promise.resolve(54321);
+        // });
+        utilsStartTestIdsNamedPipeStub.callsFake(() => {
             deferred3.resolve();
-            return Promise.resolve(54321);
+            return Promise.resolve('testIdPipe-mockName');
         });
         const testRun = typeMoq.Mock.ofType<TestRun>();
         testRun.setup((t) => t.token).returns(() => ({ onCancellationRequested: () => undefined } as any));
@@ -218,17 +241,17 @@ suite('pytest test execution adapter', () => {
             isTestExecution: () => false,
         } as unknown) as IConfigurationService;
         const uri = Uri.file(myTestPath);
-        const uuid = 'uuid123';
-        testServer
-            .setup((t) => t.onRunDataReceived(typeMoq.It.isAny(), typeMoq.It.isAny()))
-            .returns(() => ({
-                dispose: () => {
-                    /* no-body */
-                },
-            }));
-        testServer.setup((t) => t.createUUID(typeMoq.It.isAny())).returns(() => uuid);
+        // const uuid = 'uuid123';
+        // testServer
+        //     .setup((t) => t.onRunDataReceived(typeMoq.It.isAny(), typeMoq.It.isAny()))
+        //     .returns(() => ({
+        //         dispose: () => {
+        //             /* no-body */
+        //         },
+        //     }));
+        // testServer.setup((t) => t.createUUID(typeMoq.It.isAny())).returns(() => uuid);
         const outputChannel = typeMoq.Mock.ofType<ITestOutputChannel>();
-        adapter = new PytestTestExecutionAdapter(testServer.object, configService, outputChannel.object);
+        adapter = new PytestTestExecutionAdapter(configService, outputChannel.object);
         adapter.runTests(uri, [], false, testRun.object, execFactory.object);
 
         await deferred2.promise;
@@ -241,8 +264,8 @@ suite('pytest test execution adapter', () => {
         const expectedArgs = [pathToPythonScript, '--rootdir', myTestPath];
         const expectedExtraVariables = {
             PYTHONPATH: pathToPythonFiles,
-            TEST_UUID: 'uuid123',
-            TEST_PORT: '12345',
+            TEST_RUN_PIPE: 'runResultPipe-mockName',
+            RUN_TEST_IDS_PIPE: 'testIdPipe-mockName',
         };
 
         execService.verify(
@@ -251,9 +274,8 @@ suite('pytest test execution adapter', () => {
                     expectedArgs,
                     typeMoq.It.is<SpawnOptions>((options) => {
                         assert.equal(options.env?.PYTHONPATH, expectedExtraVariables.PYTHONPATH);
-                        assert.equal(options.env?.TEST_UUID, expectedExtraVariables.TEST_UUID);
-                        assert.equal(options.env?.TEST_PORT, expectedExtraVariables.TEST_PORT);
-                        assert.equal(options.env?.RUN_TEST_IDS_PORT, '54321');
+                        assert.equal(options.env?.TEST_RUN_PIPE, expectedExtraVariables.TEST_RUN_PIPE);
+                        assert.equal(options.env?.RUN_TEST_IDS_PIPE, expectedExtraVariables.RUN_TEST_IDS_PIPE);
                         assert.equal(options.cwd, newCwd);
                         assert.equal(options.throwOnStdErr, true);
                         return true;
@@ -265,9 +287,13 @@ suite('pytest test execution adapter', () => {
     test('Debug launched correctly for pytest', async () => {
         const deferred3 = createDeferred();
         const deferredEOT = createDeferred();
-        utilsStartServerStub.callsFake(() => {
+        // utilsStartServerStub.callsFake(() => {
+        //     deferred3.resolve();
+        //     return Promise.resolve(54321);
+        // });
+        utilsStartTestIdsNamedPipeStub.callsFake(() => {
             deferred3.resolve();
-            return Promise.resolve(54321);
+            return Promise.resolve('testIdPipe-mockName');
         });
         debugLauncher
             .setup((dl) => dl.launchDebugger(typeMoq.It.isAny(), typeMoq.It.isAny()))
@@ -287,17 +313,17 @@ suite('pytest test execution adapter', () => {
                     } as any),
             );
         const uri = Uri.file(myTestPath);
-        const uuid = 'uuid123';
-        testServer
-            .setup((t) => t.onRunDataReceived(typeMoq.It.isAny(), typeMoq.It.isAny()))
-            .returns(() => ({
-                dispose: () => {
-                    /* no-body */
-                },
-            }));
-        testServer.setup((t) => t.createUUID(typeMoq.It.isAny())).returns(() => uuid);
+        // const uuid = 'uuid123';
+        // testServer
+        //     .setup((t) => t.onRunDataReceived(typeMoq.It.isAny(), typeMoq.It.isAny()))
+        //     .returns(() => ({
+        //         dispose: () => {
+        //             /* no-body */
+        //         },
+        //     }));
+        // testServer.setup((t) => t.createUUID(typeMoq.It.isAny())).returns(() => uuid);
         const outputChannel = typeMoq.Mock.ofType<ITestOutputChannel>();
-        adapter = new PytestTestExecutionAdapter(testServer.object, configService, outputChannel.object);
+        adapter = new PytestTestExecutionAdapter(configService, outputChannel.object);
         await adapter.runTests(uri, [], true, testRun.object, execFactory.object, debugLauncher.object);
         await deferred3.promise;
         debugLauncher.verify(
@@ -307,15 +333,14 @@ suite('pytest test execution adapter', () => {
                         assert.equal(launchOptions.cwd, uri.fsPath);
                         assert.deepEqual(launchOptions.args, ['--rootdir', myTestPath, '--capture', 'no']);
                         assert.equal(launchOptions.testProvider, 'pytest');
-                        assert.equal(launchOptions.pytestPort, '12345');
-                        assert.equal(launchOptions.pytestUUID, 'uuid123');
-                        assert.strictEqual(launchOptions.runTestIdsPort, '54321');
+                        assert.equal(launchOptions.pytestPort, 'runResultPipe-mockName');
+                        assert.strictEqual(launchOptions.runTestIdsPort, 'testIdPipe-mockName');
                         return true;
                     }),
                     typeMoq.It.isAny(),
                 ),
             typeMoq.Times.once(),
         );
-        testServer.verify((x) => x.deleteUUID(typeMoq.It.isAny()), typeMoq.Times.once());
+        // testServer.verify((x) => x.deleteUUID(typeMoq.It.isAny()), typeMoq.Times.once());
     });
 });

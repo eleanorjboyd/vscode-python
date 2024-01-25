@@ -125,8 +125,7 @@ def test_simple_discovery() -> None:
         "id_": start_dir,
     }
 
-    uuid = "some-uuid"
-    actual = discover_tests(start_dir, pattern, None, uuid)
+    actual = discover_tests(start_dir, pattern, None)
 
     assert actual["status"] == "success"
     assert is_same_tree(actual.get("tests"), expected)
@@ -205,8 +204,7 @@ def test_empty_discovery() -> None:
     start_dir = os.fsdecode(TEST_DATA_PATH)
     pattern = "discovery_empty*"
 
-    uuid = "some-uuid"
-    actual = discover_tests(start_dir, pattern, None, uuid)
+    actual = discover_tests(start_dir, pattern, None)
 
     assert actual["status"] == "success"
     assert "tests" in actual
@@ -271,8 +269,7 @@ def test_error_discovery() -> None:
         "id_": start_dir,
     }
 
-    uuid = "some-uuid"
-    actual = discover_tests(start_dir, pattern, None, uuid)
+    actual = discover_tests(start_dir, pattern, None)
 
     assert actual["status"] == "error"
     assert is_same_tree(expected, actual.get("tests"))
@@ -286,8 +283,7 @@ def test_unit_skip() -> None:
     start_dir = os.fsdecode(TEST_DATA_PATH / "unittest_skip")
     pattern = "unittest_*"
 
-    uuid = "some-uuid"
-    actual = discover_tests(start_dir, pattern, None, uuid)
+    actual = discover_tests(start_dir, pattern, None)
 
     assert actual["status"] == "success"
     assert "tests" in actual

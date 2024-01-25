@@ -18,7 +18,6 @@ import { MockChildProcess } from '../../mocks/mockChildProcess';
 import * as util from '../../../client/testing/testController/common/utils';
 
 suite('Execution Flow Run Adapters', () => {
-    let testServer: typeMoq.IMock<ITestServer>;
     let configService: IConfigurationService;
     let execFactory = typeMoq.Mock.ofType<IPythonExecutionFactory>();
     let adapter: PytestTestExecutionAdapter;
@@ -31,15 +30,6 @@ suite('Execution Flow Run Adapters', () => {
     let utilsStartServerStub: sinon.SinonStub;
 
     setup(() => {
-        testServer = typeMoq.Mock.ofType<ITestServer>();
-        testServer.setup((t) => t.getPort()).returns(() => 12345);
-        testServer
-            .setup((t) => t.onRunDataReceived(typeMoq.It.isAny(), typeMoq.It.isAny()))
-            .returns(() => ({
-                dispose: () => {
-                    /* no-body */
-                },
-            }));
         configService = ({
             getSettings: () => ({
                 testing: { pytestArgs: ['.'], unittestArgs: ['-v', '-s', '.', '-p', 'test*'] },
@@ -127,20 +117,7 @@ suite('Execution Flow Run Adapters', () => {
             }
             return deferredExecClose;
         });
-        // set up test server
-        testServer
-            .setup((t) => t.onRunDataReceived(typeMoq.It.isAny(), typeMoq.It.isAny()))
-            .returns(() => ({
-                dispose: () => {
-                    /* no-body */
-                },
-            }));
-        testServer.setup((t) => t.createUUID(typeMoq.It.isAny())).returns(() => 'uuid123');
-        adapter = new PytestTestExecutionAdapter(
-            testServer.object,
-            configService,
-            typeMoq.Mock.ofType<ITestOutputChannel>().object,
-        );
+        adapter = new PytestTestExecutionAdapter(configService, typeMoq.Mock.ofType<ITestOutputChannel>().object);
         await adapter.runTests(
             Uri.file(myTestPath),
             [],
@@ -152,7 +129,7 @@ suite('Execution Flow Run Adapters', () => {
         // wait for server to start to keep test from failing
         await deferredStartServer.promise;
 
-        testServer.verify((x) => x.deleteUUID(typeMoq.It.isAny()), typeMoq.Times.once());
+        // testServer.verify((x) => x.deleteUUID(typeMoq.It.isAny()), typeMoq.Times.once());
     });
     test('PYTEST cancelation token called mid-debug resolves correctly', async () => {
         // mock test run and cancelation token
@@ -196,19 +173,8 @@ suite('Execution Flow Run Adapters', () => {
             return deferredExecClose;
         });
         // set up test server
-        testServer
-            .setup((t) => t.onRunDataReceived(typeMoq.It.isAny(), typeMoq.It.isAny()))
-            .returns(() => ({
-                dispose: () => {
-                    /* no-body */
-                },
-            }));
-        testServer.setup((t) => t.createUUID(typeMoq.It.isAny())).returns(() => 'uuid123');
-        adapter = new PytestTestExecutionAdapter(
-            testServer.object,
-            configService,
-            typeMoq.Mock.ofType<ITestOutputChannel>().object,
-        );
+
+        adapter = new PytestTestExecutionAdapter(configService, typeMoq.Mock.ofType<ITestOutputChannel>().object);
         await adapter.runTests(
             Uri.file(myTestPath),
             [],
@@ -220,7 +186,7 @@ suite('Execution Flow Run Adapters', () => {
         // wait for server to start to keep test from failing
         await deferredStartServer.promise;
 
-        testServer.verify((x) => x.deleteUUID(typeMoq.It.isAny()), typeMoq.Times.once());
+        // testServer.verify((x) => x.deleteUUID(typeMoq.It.isAny()), typeMoq.Times.once());
     });
     test('UNITTEST cancelation token called mid-run resolves correctly', async () => {
         // mock test run and cancelation token
@@ -229,32 +195,6 @@ suite('Execution Flow Run Adapters', () => {
         const { token } = cancellationToken;
         testRunMock.setup((t) => t.token).returns(() => token);
 
-        // Stub send command to then have token canceled
-        const stubTestServer = typeMoq.Mock.ofType<ITestServer>();
-        stubTestServer
-            .setup((t) =>
-                t.sendCommand(
-                    typeMoq.It.isAny(),
-                    typeMoq.It.isAny(),
-                    typeMoq.It.isAny(),
-                    typeMoq.It.isAny(),
-                    typeMoq.It.isAny(),
-                    typeMoq.It.isAny(),
-                ),
-            )
-            .returns(() => {
-                cancellationToken.cancel();
-                return Promise.resolve();
-            });
-
-        stubTestServer.setup((t) => t.createUUID(typeMoq.It.isAny())).returns(() => 'uuid123');
-        stubTestServer
-            .setup((t) => t.onRunDataReceived(typeMoq.It.isAny(), typeMoq.It.isAny()))
-            .returns(() => ({
-                dispose: () => {
-                    /* no-body */
-                },
-            }));
         // mock exec service and exec factory
         const execServiceMock = typeMoq.Mock.ofType<IPythonExecutionService>();
         execServiceMock
@@ -293,7 +233,7 @@ suite('Execution Flow Run Adapters', () => {
         });
         // set up test server
         const unittestAdapter = new UnittestTestExecutionAdapter(
-            stubTestServer.object,
+            // stubTestServer.object,
             configService,
             typeMoq.Mock.ofType<ITestOutputChannel>().object,
         );
@@ -301,7 +241,7 @@ suite('Execution Flow Run Adapters', () => {
         // wait for server to start to keep test from failing
         await deferredStartServer.promise;
 
-        stubTestServer.verify((x) => x.deleteUUID(typeMoq.It.isAny()), typeMoq.Times.once());
+        // stubTestServer.verify((x) => x.deleteUUID(typeMoq.It.isAny()), typeMoq.Times.once());
     });
     test('UNITTEST cancelation token called mid-debug resolves correctly', async () => {
         // mock test run and cancelation token
@@ -368,7 +308,6 @@ suite('Execution Flow Run Adapters', () => {
         });
         // set up test server
         const unittestAdapter = new UnittestTestExecutionAdapter(
-            stubTestServer.object,
             configService,
             typeMoq.Mock.ofType<ITestOutputChannel>().object,
         );

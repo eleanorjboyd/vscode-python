@@ -9,7 +9,6 @@ import socket
 import subprocess
 import sys
 import threading
-import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
 script_dir = pathlib.Path(__file__).parent.parent.parent
@@ -138,8 +137,7 @@ def runner_with_cwd(
     env = os.environ.copy()
     env.update(
         {
-            "TEST_UUID": str(uuid.uuid4()),
-            "TEST_PORT": str(port),
+            "TEST_RUN_PIPE": str(port),
             "PYTHONPATH": os.fspath(pathlib.Path(__file__).parent.parent.parent),
         }
     )

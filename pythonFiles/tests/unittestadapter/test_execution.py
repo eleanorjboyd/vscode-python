@@ -4,13 +4,14 @@
 import os
 import pathlib
 import sys
+from unittest.mock import patch
 
 import pytest
 
 script_dir = pathlib.Path(__file__).parent.parent
 sys.path.insert(0, os.fspath(script_dir / "lib" / "python"))
 
-from unittestadapter.execution import run_tests
+from unittestadapter.execution import run_tests, send_run_data
 
 TEST_DATA_PATH = pathlib.Path(__file__).parent / ".data"
 
@@ -22,7 +23,7 @@ def test_no_ids_run() -> None:
     start_dir: str = os.fspath(TEST_DATA_PATH)
     testids = []
     pattern = "discovery_simple*"
-    actual = run_tests(start_dir, testids, pattern, None, "fake-uuid", 1, None)
+    actual = run_tests(start_dir, testids, pattern, None, 1, None)
     assert actual
     assert all(item in actual for item in ("cwd", "status"))
     assert actual["status"] == "success"
@@ -33,49 +34,56 @@ def test_no_ids_run() -> None:
         raise AssertionError("actual['result'] is None")
 
 
-def test_single_ids_run() -> None:
+@pytest.fixture
+def mock_send_run_data():
+    with patch("unittestadapter.execution.send_run_data") as mock:
+        yield mock
+
+
+def test_single_ids_run(mock_send_run_data):
     """This test runs on a single test_id, therefore it should return
     a dict with a single key-value pair for the result.
 
     This single test passes so the outcome should be 'success'.
     """
     id = "discovery_simple.DiscoverySimple.test_one"
+    os.environ["TEST_RUN_PIPE"] = "fake"
     actual = run_tests(
         os.fspath(TEST_DATA_PATH),
         [id],
         "discovery_simple*",
         None,
-        "fake-uuid",
         1,
         None,
     )
-    assert actual
-    assert all(item in actual for item in ("cwd", "status"))
-    assert actual["status"] == "success"
-    assert actual["cwd"] == os.fspath(TEST_DATA_PATH)
-    assert actual["result"] is not None
-    result = actual["result"]
-    assert len(result) == 1
-    assert id in result
-    id_result = result[id]
+
+    # Access the arguments
+    args, _ = mock_send_run_data.call_args
+    actual_result = args[0]  # first argument is the result
+
+    assert actual_result
+    actual_result = actual["result"]
+    assert len(actual_result) == 1
+    assert id in actual_result
+    id_result = actual_result[id]
     assert id_result is not None
     assert "outcome" in id_result
     assert id_result["outcome"] == "success"
 
 
-def test_subtest_run() -> None:
+def test_subtest_run(mock_send_run_data) -> None:
     """This test runs on a the test_subtest which has a single method, test_even,
     that uses unittest subtest.
 
     The actual result of run should return a dict payload with 6 entry for the 6 subtests.
     """
     id = "test_subtest.NumbersTest.test_even"
+    os.environ["TEST_RUN_PIPE"] = "fake"
     actual = run_tests(
         os.fspath(TEST_DATA_PATH),
         [id],
         "test_subtest.py",
         None,
-        "fake-uuid",
         1,
         None,
     )
@@ -161,7 +169,9 @@ def test_subtest_run() -> None:
         ),
     ],
 )
-def test_multiple_ids_run(test_ids, pattern, cwd, expected_outcome) -> None:
+def test_multiple_ids_run(
+    mock_send_run_data, test_ids, pattern, cwd, expected_outcome
+) -> None:
     """
     The following are all successful tests of different formats.
 
@@ -174,7 +184,8 @@ def test_multiple_ids_run(test_ids, pattern, cwd, expected_outcome) -> None:
 
     All tests should have the outcome of `success`.
     """
-    actual = run_tests(cwd, test_ids, pattern, None, "fake-uuid", 1, None)
+    os.environ["TEST_RUN_PIPE"] = "fake"
+    actual = run_tests(cwd, test_ids, pattern, None, 1, None)
     assert actual
     assert all(item in actual for item in ("cwd", "status"))
     assert actual["status"] == "success"
@@ -191,8 +202,10 @@ def test_multiple_ids_run(test_ids, pattern, cwd, expected_outcome) -> None:
     assert True
 
 
-def test_failed_tests():
+def test_failed_tests(mock_send_run_data):
     """This test runs on a single file `test_fail` with two tests that fail."""
+
+    os.environ["TEST_RUN_PIPE"] = "fake"
     test_ids = [
         "test_fail_simple.RunFailSimple.test_one_fail",
         "test_fail_simple.RunFailSimple.test_two_fail",
@@ -202,7 +215,6 @@ def test_failed_tests():
         test_ids,
         "test_fail_simple*",
         None,
-        "fake-uuid",
         1,
         None,
     )
@@ -226,17 +238,17 @@ def test_failed_tests():
     assert True
 
 
-def test_unknown_id():
+def test_unknown_id(mock_send_run_data):
     """This test runs on a unknown test_id, therefore it should return
     an error as the outcome as it attempts to find the given test.
     """
+    os.environ["TEST_RUN_PIPE"] = "fake"
     test_ids = ["unknown_id"]
     actual = run_tests(
         os.fspath(TEST_DATA_PATH),
         test_ids,
         "test_fail_simple*",
         None,
-        "fake-uuid",
         1,
         None,
     )
@@ -260,12 +272,13 @@ def test_incorrect_path():
     an error as the outcome as it attempts to find the given folder.
     """
     test_ids = ["unknown_id"]
+    os.environ["TEST_RUN_PIPE"] = "fake"
+
     actual = run_tests(
         os.fspath(TEST_DATA_PATH / "unknown_folder"),
         test_ids,
         "test_fail_simple*",
         None,
-        "fake-uuid",
         1,
         None,
     )

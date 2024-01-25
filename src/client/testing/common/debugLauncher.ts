@@ -206,12 +206,11 @@ export class DebugLauncher implements ITestDebugLauncher {
         launchArgs.request = 'launch';
 
         if (pythonTestAdapterRewriteExperiment) {
-            if (options.pytestPort && options.pytestUUID && options.runTestIdsPort) {
+            if (options.pytestPort && options.runTestIdsPort) {
                 launchArgs.env = {
                     ...launchArgs.env,
-                    TEST_PORT: options.pytestPort,
-                    TEST_UUID: options.pytestUUID,
-                    RUN_TEST_IDS_PORT: options.runTestIdsPort,
+                    TEST_RUN_PIPE: options.pytestPort,
+                    RUN_TEST_IDS_PIPE: options.runTestIdsPort,
                 };
             } else {
                 throw Error(
