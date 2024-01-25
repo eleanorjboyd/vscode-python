@@ -9,6 +9,7 @@ import {
     TestItem,
     TestRun,
     TestRunProfileKind,
+    TestRunRequest,
     Uri,
     WorkspaceFolder,
 } from 'vscode';
@@ -222,6 +223,14 @@ export interface ITestExecutionAdapter {
         uri: Uri,
         testIds: string[],
         debugBool?: boolean,
+        runInstance?: TestRun,
+        executionFactory?: IPythonExecutionFactory,
+        debugLauncher?: ITestDebugLauncher,
+    ): Promise<ExecutionTestPayload>;
+    runTests(
+        uri: Uri,
+        testIds: string[],
+        request: TestRunRequest,
         runInstance?: TestRun,
         executionFactory?: IPythonExecutionFactory,
         debugLauncher?: ITestDebugLauncher,

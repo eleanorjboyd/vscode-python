@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-import { TestRun, Uri } from 'vscode';
+import { TestRun, TestRunRequest, Uri } from 'vscode';
 import * as path from 'path';
 import { ChildProcess } from 'child_process';
 import { IConfigurationService, ITestOutputChannel } from '../../../common/types';
@@ -38,7 +38,7 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
     async runTests(
         uri: Uri,
         testIds: string[],
-        debugBool?: boolean,
+        request: TestRunRequest,
         runInstance?: TestRun,
         executionFactory?: IPythonExecutionFactory,
         debugLauncher?: ITestDebugLauncher,
@@ -71,8 +71,8 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
                 uri,
                 testIds,
                 uuid,
+                request,
                 runInstance,
-                debugBool,
                 executionFactory,
                 debugLauncher,
                 deferredTillEOT,
@@ -97,8 +97,8 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
         uri: Uri,
         testIds: string[],
         uuid: string,
+        request: TestRunRequest,
         runInstance?: TestRun,
-        debugBool?: boolean,
         executionFactory?: IPythonExecutionFactory,
         debugLauncher?: ITestDebugLauncher,
         deferredTillEOT?: Deferred<void>,
@@ -112,6 +112,7 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
         const mutableEnv = {
             ...(await this.envVarsService?.getEnvironmentVariables(uri)),
         };
+
         // get python path from mutable env, it contains process.env as well
         const pythonPathParts: string[] = mutableEnv.PYTHONPATH?.split(path.delimiter) ?? [];
         const pythonPathCommand = [fullPluginPath, ...pythonPathParts].join(path.delimiter);

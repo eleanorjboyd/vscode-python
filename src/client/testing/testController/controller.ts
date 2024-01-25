@@ -374,6 +374,9 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
     }
 
     private async runTests(request: TestRunRequest, token: CancellationToken): Promise<void> {
+        // Does label have to be unique? Can I use label as the ID for the given config?
+        // Does kind matter to me? If it is already here than I know it is run or debug and debug I already check in another way
+        request.profile?.label;
         const workspaces: WorkspaceFolder[] = [];
         if (request.include) {
             uniq(request.include.map((r) => this.workspaceService.getWorkspaceFolder(r.uri))).forEach((w) => {
@@ -432,8 +435,8 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
                                     this.testController,
                                     runInstance,
                                     testItems,
+                                    request,
                                     token,
-                                    request.profile?.kind === TestRunProfileKind.Debug,
                                     this.pythonExecFactory,
                                     this.debugLauncher,
                                 );
