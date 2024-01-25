@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 import * as util from 'util';
-import { CancellationToken, TestController, TestItem, TestRun, TestRunProfileKind, TestRunRequest, Uri } from 'vscode';
+import { CancellationToken, TestController, TestItem, TestRun, Uri } from 'vscode';
 import { createDeferred, Deferred } from '../../common/utils/async';
 import { Testing } from '../../common/utils/localize';
 import { traceError } from '../../logging';
@@ -41,8 +41,8 @@ export class WorkspaceTestAdapter {
         testController: TestController,
         runInstance: TestRun,
         includes: TestItem[],
-        request: TestRunRequest,
         token?: CancellationToken,
+        debugBool?: boolean,
         executionFactory?: IPythonExecutionFactory,
         debugLauncher?: ITestDebugLauncher,
     ): Promise<void> {
@@ -50,11 +50,6 @@ export class WorkspaceTestAdapter {
             traceError('Test execution already in progress, not starting a new one.');
             return this.executing.promise;
         }
-
-        // move check for debugBool here
-        const debugBool = request.profile?.kind === TestRunProfileKind.Debug;
-
-        // fetch the args for the test run here?
 
         const deferred = createDeferred<void>();
         this.executing = deferred;
@@ -141,10 +136,7 @@ export class WorkspaceTestAdapter {
             }
             deferred.resolve();
         } catch (ex) {
-            sendTelemetryEvent(EventName.UNITTEST_DISCOVERY_DONE, undefined, {
-                tool: this.testProvider,
-                failed: true,
-            });
+            sendTelemetryEvent(EventName.UNITTEST_DISCOVERY_DONE, undefined, { tool: this.testProvider, failed: true });
 
             let cancel = token?.isCancellationRequested
                 ? Testing.cancelUnittestDiscovery
@@ -168,10 +160,7 @@ export class WorkspaceTestAdapter {
             this.discovering = undefined;
         }
 
-        sendTelemetryEvent(EventName.UNITTEST_DISCOVERY_DONE, undefined, {
-            tool: this.testProvider,
-            failed: false,
-        });
+        sendTelemetryEvent(EventName.UNITTEST_DISCOVERY_DONE, undefined, { tool: this.testProvider, failed: false });
         return Promise.resolve();
     }
 }
