@@ -121,6 +121,7 @@ suite('pytest test discovery adapter', () => {
                             assert.deepEqual(options.env, expectedExtraVariables);
                             assert.equal(options.cwd, expectedPath);
                             assert.equal(options.throwOnStdErr, true);
+                            assert.equal(options.shell, true);
                             return true;
                         } catch (e) {
                             console.error(e);
@@ -170,6 +171,7 @@ suite('pytest test discovery adapter', () => {
                         assert.deepEqual(options.env, expectedExtraVariables);
                         assert.equal(options.cwd, expectedPathNew);
                         assert.equal(options.throwOnStdErr, true);
+                        assert.equal(options.shell, true);
                         return true;
                     }),
                 ),

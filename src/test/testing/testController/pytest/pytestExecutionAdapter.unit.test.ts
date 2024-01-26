@@ -188,6 +188,7 @@ suite('pytest test execution adapter', () => {
                         assert.equal(options.env?.RUN_TEST_IDS_PORT, '54321');
                         assert.equal(options.cwd, uri.fsPath);
                         assert.equal(options.throwOnStdErr, true);
+                        assert.equal(options.shell, true);
                         return true;
                     }),
                 ),
@@ -256,6 +257,7 @@ suite('pytest test execution adapter', () => {
                         assert.equal(options.env?.RUN_TEST_IDS_PORT, '54321');
                         assert.equal(options.cwd, newCwd);
                         assert.equal(options.throwOnStdErr, true);
+                        assert.equal(options.shell, true);
                         return true;
                     }),
                 ),

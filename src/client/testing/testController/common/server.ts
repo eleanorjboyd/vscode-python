@@ -196,6 +196,7 @@ export class PythonTestServer implements ITestServer, Disposable {
             throwOnStdErr: true,
             outputChannel: options.outChannel,
             env: mutableEnv,
+            shell: true,
         };
         const isRun = runTestIdPort !== undefined;
         // Create the Python environment in which to execute the command.

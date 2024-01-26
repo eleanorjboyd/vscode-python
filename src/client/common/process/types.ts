@@ -27,6 +27,7 @@ export type SpawnOptions = ChildProcessSpawnOptions & {
     outputChannel?: OutputChannel;
     stdinStr?: string;
     useWorker?: boolean;
+    shell?: boolean | string | undefined;
 };
 
 export type ShellOptions = ExecOptions & { throwOnStdErr?: boolean; useWorker?: boolean };

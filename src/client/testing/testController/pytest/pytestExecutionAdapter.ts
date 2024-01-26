@@ -155,6 +155,7 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
                 outputChannel: this.outputChannel,
                 stdinStr: testIds.toString(),
                 env: mutableEnv,
+                shell: true,
             };
 
             if (debugBool) {
