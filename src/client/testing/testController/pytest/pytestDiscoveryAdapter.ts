@@ -85,6 +85,38 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
             pytestArgs = addValueIfKeyNotExist(pytestArgs, '--rootdir', cwd);
         }
 
+<<<<<<< HEAD
+        // check for symbolic path
+        const stats = await fs.promises.lstat(cwd);
+        const resolvedPath = await fs.promises.realpath(cwd);
+        let isSymbolicLink = false;
+        if (stats.isSymbolicLink()) {
+            isSymbolicLink = true;
+            traceWarn('The cwd is a symbolic link.');
+        } else if (resolvedPath !== cwd) {
+            traceWarn(
+                'The cwd resolves to a different path, checking if it has a symbolic link somewhere in its path.',
+            );
+            isSymbolicLink = await hasSymlinkParent(cwd);
+        }
+        if (isSymbolicLink) {
+            traceWarn("Symlink found, adding '--rootdir' to pytestArgs only if it doesn't already exist. cwd: ", cwd);
+            pytestArgs = addValueIfKeyNotExist(pytestArgs, '--rootdir', cwd);
+=======
+        const stats = fs.lstatSync(cwd);
+
+        if (stats.isSymbolicLink()) {
+            console.log('The path is a symbolic link.');
+            const rootDir = getRootDirValue(pytestArgs);
+            if (rootDir === null) {
+                pytestArgs.push(`--rootdir=${cwd}`);
+                console.log(`The --rootdir argument is set to ${cwd} since it is a symlink.`);
+            }
+        } else {
+            console.log('The path is not a symbolic link.');
+>>>>>>> 638eb3998 (symlink solution for pytest)
+        }
+
         // get and edit env vars
         const mutableEnv = {
             ...(await this.envVarsService?.getEnvironmentVariables(uri)),
@@ -152,4 +184,17 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
         });
         await deferredTillExecClose.promise;
     }
+}
+
+function getRootDirValue(pytestArgs: string[]): string | null {
+    // Find the argument that contains '--rootdir='
+    const rootdirArg = pytestArgs.find((arg) => arg.startsWith('--rootdir='));
+
+    if (rootdirArg) {
+        // Extract the value after '--rootdir='
+        return rootdirArg.split('=')[1];
+    }
+
+    // Return null if '--rootdir=' is not found
+    return null;
 }
