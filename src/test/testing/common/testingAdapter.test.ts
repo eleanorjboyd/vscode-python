@@ -171,7 +171,7 @@ suite('End to End Tests: test adapters', () => {
 
         // set workspace to test workspace folder and set up settings
 
-        configService.getSettings(workspaceUri).testing.unittestArgs = ['-s', '.', '-p', '*test*.py'];
+        //     configService.getSettings(workspaceUri).testing.unittestArgs = ['-s', '.', '-p', '*test*.py'];
 
         // run unittest discovery
         const discoveryAdapter = new UnittestTestDiscoveryAdapter(
