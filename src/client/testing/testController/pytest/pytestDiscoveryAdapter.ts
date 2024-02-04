@@ -22,6 +22,7 @@ import {
     MESSAGE_ON_TESTING_OUTPUT_MOVE,
     createDiscoveryErrorPayload,
     createEOTPayload,
+    createEmptyFileDiscoveryPayload,
     createTestingDeferred,
     fixLogLinesNoTrailing,
 } from '../common/utils';
@@ -39,7 +40,12 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
         private readonly envVarsService?: IEnvironmentVariablesProvider,
     ) {}
 
-    async discoverTests(uri: Uri, executionFactory?: IPythonExecutionFactory): Promise<DiscoveredTestPayload> {
+    async discoverTests(
+        uri: Uri,
+        executionFactory?: IPythonExecutionFactory,
+        fileUri?: Uri,
+    ): Promise<DiscoveredTestPayload> {
+        // after the workspaceTesetAdapter we jump here
         const uuid = this.testServer.createUUID(uri.fsPath);
         const deferredTillEOT: Deferred<void> = createDeferred<void>();
         const dataReceivedDisposable = this.testServer.onDiscoveryDataReceived(async (e: DataReceivedEvent) => {
@@ -51,7 +57,8 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
             dataReceivedDisposable.dispose();
         };
         try {
-            await this.runPytestDiscovery(uri, uuid, executionFactory);
+            // then we go here
+            await this.runPytestDiscovery(uri, uuid, executionFactory, fileUri);
         } finally {
             await deferredTillEOT.promise;
             traceVerbose(`deferredTill EOT resolved for ${uri.fsPath}`);
@@ -62,11 +69,25 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
         return discoveryPayload;
     }
 
-    async runPytestDiscovery(uri: Uri, uuid: string, executionFactory?: IPythonExecutionFactory): Promise<void> {
+    async runPytestDiscovery(
+        uri: Uri,
+        uuid: string,
+        executionFactory?: IPythonExecutionFactory,
+        fileUri?: Uri,
+    ): Promise<void> {
+        // this is where we really call the run discovery
         const relativePathToPytest = 'pythonFiles';
         const fullPluginPath = path.join(EXTENSION_ROOT_DIR, relativePathToPytest);
         const settings = this.configSettings.getSettings(uri);
-        const { pytestArgs } = settings.testing;
+        /*
+
+        here we should be able to retrieve another setting which is the new setting we want to create.
+        I would name it something like `python.testing.DiscoveryOnOnlySavedFile`, I would need to talk with my team about an
+        official name so just use a placeholder for now. You can follow how other settings work (such as pytest args),
+        to get an idea on how to create a new setting and access it here in the code
+
+        */
+        let { pytestArgs } = settings.testing;
         const cwd = settings.testing.cwd && settings.testing.cwd.length > 0 ? settings.testing.cwd : uri.fsPath;
 
         // get and edit env vars
@@ -98,6 +119,20 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
         };
         const execService = await executionFactory?.createActivatedEnvironment(creationOptions);
         // delete UUID following entire discovery finishing.
+        /*
+        here we are putting together all the args for the pytest discovery.
+        THIS SECTION I AM OPEN TO SUGGESTIONS, i am not sure if my suggested flow below is the best so please let me know if you have a better idea.
+
+        1. check to see if -k is already being used
+        2. if it isn't then add `-k uriOfSavedFile` to the args
+
+        */
+        if (fileUri !== undefined) {
+            // filter out arg "." if it exits
+            const filteredPytestArgs = pytestArgs.filter((arg) => arg !== '.');
+            filteredPytestArgs.push(fileUri.fsPath);
+            pytestArgs = filteredPytestArgs;
+        }
         const execArgs = ['-m', 'pytest', '-p', 'vscode_pytest', '--collect-only'].concat(pytestArgs);
         traceVerbose(`Running pytest discovery with command: ${execArgs.join(' ')} for workspace ${uri.fsPath}.`);
 
@@ -143,6 +178,20 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
                     data: JSON.stringify(createEOTPayload(true)),
                 });
             }
+
+            if (code === 5 && fileUri !== undefined) {
+                // if no tests are found, then we need to send the error payload.
+                this.testServer.triggerDiscoveryDataReceivedEvent({
+                    uuid,
+                    data: JSON.stringify(createEmptyFileDiscoveryPayload(cwd, fileUri)),
+                });
+                // then send a EOT payload
+                this.testServer.triggerDiscoveryDataReceivedEvent({
+                    uuid,
+                    data: JSON.stringify(createEOTPayload(true)),
+                });
+            }
+
             // deferredTillEOT is resolved when all data sent on stdout and stderr is received, close event is only called when this occurs
             // due to the sync reading of the output.
             deferredTillExecClose?.resolve();

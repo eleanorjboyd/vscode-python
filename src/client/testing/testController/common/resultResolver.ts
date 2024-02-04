@@ -92,6 +92,18 @@ export class PythonResultResolver implements ITestResultResolver {
             );
             errorNodeLabel.isTrusted = true;
             errorNode.error = errorNodeLabel;
+        } else if (rawTestData.status === 'error-empty') {
+            // search this.testController.items find item with uri and delete it
+            if (rawTestData.error) {
+                const uri = rawTestData.error[0];
+                this.testController.items.forEach((item) => {
+                    item.children.forEach((child) => {
+                        if (child.id === uri) {
+                            item.children.delete(child.id);
+                        }
+                    });
+                });
+            }
         } else {
             // remove error node only if no errors exist.
             this.testController.items.delete(`DiscoveryError:${workspacePath}`);
@@ -102,7 +114,8 @@ export class PythonResultResolver implements ITestResultResolver {
 
             // If the test root for this folder exists: Workspace refresh, update its children.
             // Otherwise, it is a freshly discovered workspace, and we need to create a new test root and populate the test tree.
-            populateTestTree(this.testController, rawTestData.tests, undefined, this, token);
+            const node = this.testController.items.get(workspacePath);
+            populateTestTree(this.testController, rawTestData.tests, node, this, token);
         }
 
         sendTelemetryEvent(EventName.UNITTEST_DISCOVERY_DONE, undefined, {
