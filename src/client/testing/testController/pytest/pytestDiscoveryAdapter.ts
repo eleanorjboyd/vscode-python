@@ -104,14 +104,9 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
             pytestArgs = addValueIfKeyNotExist(pytestArgs, '--rootdir', cwd);
 =======
         const stats = fs.lstatSync(cwd);
-
         if (stats.isSymbolicLink()) {
             console.log('The path is a symbolic link.');
-            const rootDir = getRootDirValue(pytestArgs);
-            if (rootDir === null) {
-                pytestArgs.push(`--rootdir=${cwd}`);
-                console.log(`The --rootdir argument is set to ${cwd} since it is a symlink.`);
-            }
+            pytestArgsMap = addArgIfNotExist(pytestArgsMap, '--rootdir', cwd);
         } else {
             console.log('The path is not a symbolic link.');
 >>>>>>> 638eb3998 (symlink solution for pytest)
@@ -141,7 +136,7 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
         };
         const execService = await executionFactory?.createActivatedEnvironment(creationOptions);
         // delete UUID following entire discovery finishing.
-        const execArgs = ['-m', 'pytest', '-p', 'vscode_pytest', '--collect-only'].concat(pytestArgs);
+        const execArgs = ['-m', 'pytest', '-p', 'vscode_pytest', '--collect-only'].concat(mapToArgs(pytestArgsMap));
         traceVerbose(`Running pytest discovery with command: ${execArgs.join(' ')} for workspace ${uri.fsPath}.`);
 
         const deferredTillExecClose: Deferred<void> = createTestingDeferred();
@@ -184,17 +179,4 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
         });
         await deferredTillExecClose.promise;
     }
-}
-
-function getRootDirValue(pytestArgs: string[]): string | null {
-    // Find the argument that contains '--rootdir='
-    const rootdirArg = pytestArgs.find((arg) => arg.startsWith('--rootdir='));
-
-    if (rootdirArg) {
-        // Extract the value after '--rootdir='
-        return rootdirArg.split('=')[1];
-    }
-
-    // Return null if '--rootdir=' is not found
-    return null;
 }
