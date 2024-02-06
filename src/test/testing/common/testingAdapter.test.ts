@@ -250,6 +250,23 @@ suite('End to End Tests: test adapters', () => {
             status: 'success' | 'error';
             error?: string[];
         };
+        resultResolver = new PythonResultResolver(testController, pytestProvider, workspaceUri);
+        let callCount = 0;
+        resultResolver._resolveDiscovery = async (payload, _token?) => {
+            traceLog(`resolveDiscovery ${payload}`);
+            callCount = callCount + 1;
+            actualData = payload;
+            return Promise.resolve();
+        };
+        // run pytest discovery
+        const discoveryAdapter = new PytestTestDiscoveryAdapter(
+            pythonTestServer,
+            configService,
+            testOutputChannel.object,
+            resultResolver,
+            envVarsService,
+        );
+
         // set workspace to test workspace folder
         workspaceUri = Uri.parse(rootPathSmallWorkspace);
         resultResolver = new PythonResultResolver(testController, pytestProvider, workspaceUri);
