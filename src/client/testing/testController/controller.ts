@@ -122,19 +122,34 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
         this.refreshData = delayTrigger;
 
         this.disposables.push(
+            // CC: create specific run profiles
             this.testController.createRunProfile(
-                'Run Tests',
+                'test config: with coverage',
                 TestRunProfileKind.Run,
                 this.runTests.bind(this),
                 true,
                 RunTestTag,
             ),
             this.testController.createRunProfile(
-                'Debug Tests',
+                'test config: no coverage',
+                TestRunProfileKind.Debug,
+                this.runTests.bind(this),
+                false,
+                DebugTestTag,
+            ),
+            this.testController.createRunProfile(
+                'test config: test data',
                 TestRunProfileKind.Debug,
                 this.runTests.bind(this),
                 true,
                 DebugTestTag,
+            ),
+            this.testController.createRunProfile(
+                'test config: test data',
+                TestRunProfileKind.Run,
+                this.runTests.bind(this),
+                false,
+                RunTestTag,
             ),
         );
         this.testController.resolveHandler = this.resolveChildren.bind(this);
