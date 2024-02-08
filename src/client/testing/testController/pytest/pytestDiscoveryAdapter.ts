@@ -105,7 +105,9 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
 =======
         const stats = fs.lstatSync(cwd);
         if (stats.isSymbolicLink()) {
-            console.log('The path is a symbolic link.');
+            traceWarn(
+                "The cwd is a symbolic link, adding '--rootdir' to pytestArgsMap only if it doesn't already exist.",
+            );
             pytestArgsMap = addArgIfNotExist(pytestArgsMap, '--rootdir', cwd);
         } else {
             console.log('The path is not a symbolic link.');
