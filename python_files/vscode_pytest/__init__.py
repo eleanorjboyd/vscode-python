@@ -385,6 +385,7 @@ def pytest_sessionfinish(session, exitstatus):
         try:
             print("building test tree")
             session_node: Union[TestNode, None] = build_test_tree(session)
+            print("done building test tree")
             if not session_node:
                 raise VSCodePytestError(
                     "Something went wrong following pytest finish, \
@@ -437,10 +438,12 @@ def build_test_tree(session: pytest.Session) -> TestNode:
 
     # Check to see if the global variable for symlink path is set
     if SYMLINK_PATH:
-        print("local 3: symlink path and a session node")
+        print("local 3: symlink path and a session node", SYMLINK_PATH)
+        print("as os path", os.fspath(SYMLINK_PATH))
         session_node["path"] = SYMLINK_PATH
         session_node["id_"] = os.fspath(SYMLINK_PATH)
 
+    print("after local 3")
     for test_case in session.items:
         test_node = create_test_node(test_case)
         if hasattr(test_case, "callspec"):  # This means it is a parameterized test.
