@@ -391,6 +391,7 @@ def pytest_sessionfinish(session, exitstatus):
                     "Something went wrong following pytest finish, \
                         no session node was created"
                 )
+            print("posting response local 4")
             post_response(os.fsdecode(cwd), session_node)
         except Exception as e:
             ERRORS.append(
@@ -445,6 +446,7 @@ def build_test_tree(session: pytest.Session) -> TestNode:
 
     print("after local 3")
     for test_case in session.items:
+        print("test case", test_case)
         test_node = create_test_node(test_case)
         if hasattr(test_case, "callspec"):  # This means it is a parameterized test.
             function_name: str = ""
@@ -821,6 +823,7 @@ def post_response(cwd: str, session_node: TestNode) -> None:
     }
     if ERRORS is not None:
         payload["error"] = ERRORS
+    print("sending post request")
     send_post_request(payload, cls_encoder=PathEncoder)
 
 
