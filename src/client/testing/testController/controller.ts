@@ -17,6 +17,12 @@ import {
     EventEmitter,
     TextDocument,
     Range,
+    TestCoverageProvider,
+    FileCoverage,
+    StatementCoverage,
+    CoveredCount,
+    Position,
+    ProviderResult,
 } from 'vscode';
 import { IExtensionSingleActivationService } from '../../activation/types';
 import { ICommandManager, IDocumentManager, IWorkspaceService } from '../../common/application/types';
@@ -108,6 +114,7 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
         this.refreshCancellation = new CancellationTokenSource();
 
         this.testController = tests.createTestController('python-tests', 'Python Tests');
+
         this.disposables.push(this.testController);
 
         const delayTrigger = new DelayedTrigger(
@@ -151,7 +158,23 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
             false,
             RunTestTag,
         );
-        const runProfileList = [runProfileA, runProfileb, runProfilec, runProfiled];
+        const runProfileG = this.testController.createRunProfile(
+            'test config: test data coverage',
+            TestRunProfileKind.Coverage,
+            this.runTests.bind(this),
+            false,
+            RunTestTag,
+        );
+        // is only one coverage profile possible, how does it decide
+        // think I might have asked Connor and only 1 supported but idk
+        const runProfileH = this.testController.createRunProfile(
+            'test config: coverage 2',
+            TestRunProfileKind.Coverage,
+            this.runTests.bind(this),
+            false,
+            RunTestTag,
+        );
+        const runProfileList = [runProfileA, runProfileb, runProfilec, runProfiled, runProfileG, runProfileH];
         for (const runProfile of runProfileList) {
             runProfile.configureHandler = async () => {
                 const stringPath = `${this.workspaceService.rootPath}/.vscode/settings.json`;
@@ -447,7 +470,6 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
             `Running Tests for Workspace(s): ${workspaces.map((w) => w.uri.fsPath).join(';')}`,
             true,
         );
-
         const dispose = token.onCancellationRequested(() => {
             runInstance.appendOutput(`Run instance cancelled.\r\n`);
             runInstance.end();
@@ -473,6 +495,9 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
                             testItems.push(i);
                         }
                     });
+                    // use workspace v2/blank_scratch to run with coverage (this is where test_ex.py is located)
+
+                    // shows coverage implementation
 
                     const settings = this.configSettings.getSettings(workspace.uri);
                     if (testItems.length > 0) {
@@ -543,6 +568,23 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
                     if (!settings.testing.pytestEnabled && !settings.testing.unittestEnabled) {
                         unconfiguredWorkspaces.push(workspace);
                     }
+                    const fileUri: Uri = Uri.joinPath(workspace.uri, 'test_ex.py');
+
+                    const statementCoverageEx: CoveredCount = new CoveredCount(2, 10);
+                    const s0: StatementCoverage = new StatementCoverage(0, new Position(0, 1));
+                    const s1: StatementCoverage = new StatementCoverage(1, new Position(1, 1));
+                    const s2: StatementCoverage = new StatementCoverage(1, new Position(2, 1));
+                    const fileCoverageEx: FileCoverage = new FileCoverage(fileUri, statementCoverageEx);
+                    fileCoverageEx.detailedCoverage = [s0, s1, s2];
+
+                    const tcp: TestCoverageProvider<FileCoverage> = {
+                        provideFileCoverage(t: CancellationToken): ProviderResult<FileCoverage[]> {
+                            // probably create a function here that is called once the test is run
+                            console.log('provideFileCoverage!!! \n', t);
+                            return [fileCoverageEx];
+                        },
+                    };
+                    runInstance.coverageProvider = tcp;
                     return Promise.resolve();
                 }),
             );

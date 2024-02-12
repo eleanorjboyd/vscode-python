@@ -23,7 +23,8 @@
         "testObserver",
         "quickPickItemTooltip",
         "terminalDataWriteEvent",
-        "terminalExecuteCommandEvent"
+        "terminalExecuteCommandEvent",
+        "testCoverage"
     ],
     "author": {
         "name": "Microsoft Corporation"
