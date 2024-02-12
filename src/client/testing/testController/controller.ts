@@ -16,9 +16,10 @@ import {
     Uri,
     EventEmitter,
     TextDocument,
+    Range,
 } from 'vscode';
 import { IExtensionSingleActivationService } from '../../activation/types';
-import { ICommandManager, IWorkspaceService } from '../../common/application/types';
+import { ICommandManager, IDocumentManager, IWorkspaceService } from '../../common/application/types';
 import * as constants from '../../common/constants';
 import { IPythonExecutionFactory } from '../../common/process/types';
 import { IConfigurationService, IDisposableRegistry, ITestOutputChannel, Resource } from '../../common/types';
@@ -102,6 +103,7 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
         @inject(ITestOutputChannel) private readonly testOutputChannel: ITestOutputChannel,
         @inject(IServiceContainer) private readonly serviceContainer: IServiceContainer,
         @inject(IEnvironmentVariablesProvider) private readonly envVarsService: IEnvironmentVariablesProvider,
+        @inject(IDocumentManager) private readonly documentManager: IDocumentManager,
     ) {
         this.refreshCancellation = new CancellationTokenSource();
 
@@ -121,36 +123,77 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
         this.disposables.push(delayTrigger);
         this.refreshData = delayTrigger;
 
+        const runProfileA = this.testController.createRunProfile(
+            'test config: with coverage',
+            TestRunProfileKind.Run,
+            this.runTests.bind(this),
+            true,
+            RunTestTag,
+        );
+        const runProfileb = this.testController.createRunProfile(
+            'test config: no coverage',
+            TestRunProfileKind.Debug,
+            this.runTests.bind(this),
+            false,
+            DebugTestTag,
+        );
+        const runProfilec = this.testController.createRunProfile(
+            'test config: test data',
+            TestRunProfileKind.Debug,
+            this.runTests.bind(this),
+            true,
+            DebugTestTag,
+        );
+        const runProfiled = this.testController.createRunProfile(
+            'test config: test data',
+            TestRunProfileKind.Run,
+            this.runTests.bind(this),
+            false,
+            RunTestTag,
+        );
+        const runProfileList = [runProfileA, runProfileb, runProfilec, runProfiled];
+        for (const runProfile of runProfileList) {
+            runProfile.configureHandler = async () => {
+                const stringPath = `${this.workspaceService.rootPath}/.vscode/settings.json`;
+                const settingsJsonPath = Uri.file(stringPath);
+
+                try {
+                    const settingKey = 'python.testing.configs';
+                    const editor = await this.documentManager.showTextDocument(settingsJsonPath);
+                    const text = editor.document.getText();
+                    const settingIndex = text.indexOf(settingKey);
+
+                    if (settingIndex !== -1) {
+                        const position = editor.document.positionAt(settingIndex);
+                        editor.revealRange(new Range(position, position));
+                    } else {
+                        traceError('Setting not found');
+                    }
+                } catch (error) {
+                    traceError('Error configuring test profile', error);
+                }
+            };
+            // console.log('Configuring test profile');
+            // // /Users/eleanorboyd/testingFiles/custom-configs-folder/simple_workspace/.vscode/settings.json
+            // const stringPath = `${this.workspaceService.rootPath}/.vscode/settings.json`;
+            // const settingsJsonPath = Uri.file(stringPath);
+            // traceError("Configuring test profile doesn't work yet");
+            // traceError('workspace.asRelativePath(settingsJsonPath);', workspace.asRelativePath(settingsJsonPath));
+            // await this.documentManager.showTextDocument(settingsJsonPath).then((editor: TextEditor) => {
+            //     const text = editor.document.getText();
+            //     // find in text where it says "python.testing.configs"
+            //     const pythonTestingConfigsIndex = text.indexOf('python.testing.configs');
+            //     // open to the pythonTestingConfigsIndex
+            //     const position = editor.document.positionAt(pythonTestingConfigsIndex);
+            //     editor.selection = new Selection(position, position);
+            // });
+        }
         this.disposables.push(
             // CC: create specific run profiles
-            this.testController.createRunProfile(
-                'test config: with coverage',
-                TestRunProfileKind.Run,
-                this.runTests.bind(this),
-                true,
-                RunTestTag,
-            ),
-            this.testController.createRunProfile(
-                'test config: no coverage',
-                TestRunProfileKind.Debug,
-                this.runTests.bind(this),
-                false,
-                DebugTestTag,
-            ),
-            this.testController.createRunProfile(
-                'test config: test data',
-                TestRunProfileKind.Debug,
-                this.runTests.bind(this),
-                true,
-                DebugTestTag,
-            ),
-            this.testController.createRunProfile(
-                'test config: test data',
-                TestRunProfileKind.Run,
-                this.runTests.bind(this),
-                false,
-                RunTestTag,
-            ),
+            runProfileA,
+            runProfileb,
+            runProfilec,
+            runProfiled,
         );
         this.testController.resolveHandler = this.resolveChildren.bind(this);
         this.testController.refreshHandler = (token: CancellationToken) => {
