@@ -117,6 +117,8 @@ export class PythonResultResolver implements ITestResultResolver {
         runInstance: TestRun,
         deferredTillEOT: Deferred<void>,
     ): Promise<void> {
+        // Coverage:: this would be a good place to either check for the coverage payload type or
+        // look for the file that has the coverage data and then resolve the coverage data.
         if (payload !== undefined && 'eot' in payload) {
             // the payload is an EOT payload, so resolve the deferred promise.
             traceLog('ResultResolver EOT received for execution.');
