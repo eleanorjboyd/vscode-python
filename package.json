@@ -1455,7 +1455,7 @@
         "viewsWelcome": [
             {
                 "view": "testing",
-                "contents": "Configure a test framework to see your tests here.\n[Configure Python Tests](command:python.configureTests)",
+                "contents": "We have detected pytest in your workspace, instead [run with unittest](http://example.com).\n[Run pytest quick discovery](command:python.configureTests)\n[create test config](command:python.configureTests)",
                 "when": "!virtualWorkspace && shellExecutionSupported"
             }
         ],
