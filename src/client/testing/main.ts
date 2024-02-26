@@ -103,7 +103,7 @@ export class UnitTestManagementService implements IExtensionActivationService {
                     );
                     if (response === Testing.configureTests) {
                         await commandManager.executeCommand(
-                            constants.Commands.Tests_Configure,
+                            constants.Commands.Tests_Configure, //ejfb: seems like the call to make it
                             undefined,
                             constants.CommandSource.ui,
                             unconfigured[0].uri,
