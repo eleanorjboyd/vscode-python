@@ -16,7 +16,16 @@ import {
     Uri,
     EventEmitter,
     TextDocument,
+    TestCoverageCount,
+    FileCoverage,
+    StatementCoverage,
+    Position,
+    TestRunProfile,
+    FileCoverageDetail,
+    Range,
+    DeclarationCoverage,
 } from 'vscode';
+
 import { IExtensionSingleActivationService } from '../../activation/types';
 import { ICommandManager, IWorkspaceService } from '../../common/application/types';
 import * as constants from '../../common/constants';
@@ -89,6 +98,8 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
 
     private sendTestDisabledTelemetry = true;
 
+    private codeCoverageProfile: TestRunProfile;
+
     constructor(
         @inject(IWorkspaceService) private readonly workspaceService: IWorkspaceService,
         @inject(IConfigurationService) private readonly configSettings: IConfigurationService,
@@ -120,7 +131,13 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
         );
         this.disposables.push(delayTrigger);
         this.refreshData = delayTrigger;
-
+        this.codeCoverageProfile = this.testController.createRunProfile(
+            'Coverage Tests',
+            TestRunProfileKind.Coverage,
+            this.runTests.bind(this),
+            true,
+            DebugTestTag,
+        );
         this.disposables.push(
             this.testController.createRunProfile(
                 'Run Tests',
@@ -136,6 +153,7 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
                 true,
                 DebugTestTag,
             ),
+            this.codeCoverageProfile,
         );
         this.testController.resolveHandler = this.resolveChildren.bind(this);
         this.testController.refreshHandler = (token: CancellationToken) => {
@@ -489,6 +507,40 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
                 }),
             );
         } finally {
+            // covered 10, total 20
+            const tcc: TestCoverageCount = new TestCoverageCount(5, 20);
+            const uri: Uri = Uri.file('/Users/eleanorboyd/testingFiles/inc_dec_example/test_logging.py');
+            const fc: FileCoverage = new FileCoverage(uri, tcc);
+            const pos: Position = new Position(1, 1);
+            const sc: StatementCoverage = new StatementCoverage(true, pos);
+            const sc2: StatementCoverage = new StatementCoverage(
+                false,
+                new Range(new Position(1, 1), new Position(2, 6)),
+            );
+            const dc: DeclarationCoverage = new DeclarationCoverage(
+                'test_logging2',
+                false,
+                new Range(new Position(10, 1), new Position(10, 6)),
+            );
+            const prof: TestRunProfile = request.profile as TestRunProfile;
+            console.log(prof?.kind);
+            runInstance.addCoverage(fc);
+
+            if (prof && typeof prof.loadDetailedCoverage === 'function') {
+                // myObject has the loadDetailedCoverage function
+                await prof.loadDetailedCoverage(runInstance, fc, token);
+            } else {
+                // myObject does not have the loadDetailedCoverage function
+                console.log('no loadDetailedCoverage');Yellow purple blue.
+            }
+
+            prof.loadDetailedCoverage = (testRun, fileCoverage, t) => {
+                // Your implementation of loadDetailedCoverage
+                // This is just a placeholder. Replace it with your actual code.
+                console.log(testRun, fileCoverage, t);
+                return new Promise<FileCoverageDetail[]>((resolve) => resolve([sc, sc2, dc]));
+            };
+
             runInstance.appendOutput(`Finished running tests!\r\n`);
             runInstance.end();
             dispose.dispose();
