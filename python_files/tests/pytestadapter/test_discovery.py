@@ -10,6 +10,35 @@ import pytest
 from tests.tree_comparison_helper import is_same_tree  # noqa: E402
 
 from . import expected_discovery_test_output, helpers  # noqa: E402
+from packaging import version
+
+# Parse the pytest version
+pytest_version = version.parse(pytest.__version__)
+
+@pytest.mark.skipif(
+    pytest_version > version.parse("7.4.4"),
+    reason="This test requires pytest <= 7.4.4, pytest_version: {pytest_version}",
+)
+def test_lazy_fixture():
+    expected_const = expected_discovery_test_output.lazy_fixture_expected_output
+    actual = helpers.runner(
+        [
+            os.fspath(helpers.TEST_DATA_PATH / 'test_lazy_fixtures.py'),
+            "--collect-only",
+        ]
+    )
+
+    assert actual
+    actual_list: List[Dict[str, Any]] = actual
+    if actual_list is not None:
+        actual_item = actual_list.pop(0)
+        assert all(item in actual_item.keys() for item in ("status", "cwd", "error"))
+        assert actual_item.get("status") == "success"
+        assert actual_item.get("cwd") == os.fspath(helpers.TEST_DATA_PATH)
+        assert is_same_tree(
+            actual_item.get("tests"), expected_const
+        ), f"Tests tree does not match expected value. \n Expected: {json.dumps(expected_const, indent=4)}. \n Actual: {json.dumps(actual_item.get('tests'), indent=4)}"
+
 
 
 def test_import_error():

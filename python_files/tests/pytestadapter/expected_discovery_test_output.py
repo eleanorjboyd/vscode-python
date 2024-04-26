@@ -322,12 +322,19 @@ unittest_folder_discovery_expected_output = {
 #          └── test_bottom_function_t
 #          └── test_bottom_function_f
 dual_level_nested_folder_path = TEST_DATA_PATH / "dual_level_nested_folder"
-test_top_folder_path = TEST_DATA_PATH / "dual_level_nested_folder" / "test_top_folder.py"
+test_top_folder_path = (
+    TEST_DATA_PATH / "dual_level_nested_folder" / "test_top_folder.py"
+)
 
-test_nested_folder_one_path = TEST_DATA_PATH / "dual_level_nested_folder" / "nested_folder_one"
+test_nested_folder_one_path = (
+    TEST_DATA_PATH / "dual_level_nested_folder" / "nested_folder_one"
+)
 
 test_bottom_folder_path = (
-    TEST_DATA_PATH / "dual_level_nested_folder" / "nested_folder_one" / "test_bottom_folder.py"
+    TEST_DATA_PATH
+    / "dual_level_nested_folder"
+    / "nested_folder_one"
+    / "test_bottom_folder.py"
 )
 
 
@@ -856,8 +863,12 @@ root_with_config_expected_output = {
                         os.path.join(tests_path, "test_a.py"),
                     ),
                     "type_": "test",
-                    "id_": get_absolute_test_id("tests/test_a.py::test_a_function", tests_a_path),
-                    "runID": get_absolute_test_id("tests/test_a.py::test_a_function", tests_a_path),
+                    "id_": get_absolute_test_id(
+                        "tests/test_a.py::test_a_function", tests_a_path
+                    ),
+                    "runID": get_absolute_test_id(
+                        "tests/test_a.py::test_a_function", tests_a_path
+                    ),
                 }
             ],
         },
@@ -875,8 +886,12 @@ root_with_config_expected_output = {
                         os.path.join(tests_path, "test_b.py"),
                     ),
                     "type_": "test",
-                    "id_": get_absolute_test_id("tests/test_b.py::test_b_function", tests_b_path),
-                    "runID": get_absolute_test_id("tests/test_b.py::test_b_function", tests_b_path),
+                    "id_": get_absolute_test_id(
+                        "tests/test_b.py::test_b_function", tests_b_path
+                    ),
+                    "runID": get_absolute_test_id(
+                        "tests/test_b.py::test_b_function", tests_b_path
+                    ),
                 }
             ],
         },
@@ -1001,8 +1016,12 @@ nested_classes_expected_test_output = {
 }
 SYMLINK_FOLDER_PATH = TEST_DATA_PATH / "symlink_folder"
 SYMLINK_FOLDER_PATH_TESTS = TEST_DATA_PATH / "symlink_folder" / "tests"
-SYMLINK_FOLDER_PATH_TESTS_TEST_A = TEST_DATA_PATH / "symlink_folder" / "tests" / "test_a.py"
-SYMLINK_FOLDER_PATH_TESTS_TEST_B = TEST_DATA_PATH / "symlink_folder" / "tests" / "test_b.py"
+SYMLINK_FOLDER_PATH_TESTS_TEST_A = (
+    TEST_DATA_PATH / "symlink_folder" / "tests" / "test_a.py"
+)
+SYMLINK_FOLDER_PATH_TESTS_TEST_B = (
+    TEST_DATA_PATH / "symlink_folder" / "tests" / "test_b.py"
+)
 
 # This is the expected output for the symlink_folder tests.
 # └── symlink_folder
@@ -1077,3 +1096,133 @@ symlink_expected_discovery_output = {
     ],
     "id_": str(SYMLINK_FOLDER_PATH),
 }
+
+# This is the expected output for the test_lazy_fixture tests.
+# └── .data
+#    └── test_lazy_fixtures.py
+#       └── TestA
+#          └── test_a
+#             └── [fixture_a]
+#             └── [fixture_b]
+#       └── TestB
+#          └── test_a
+#             └── [fixture_a]
+#             └── [fixture_c]
+test_lazy_fixture_path = TEST_DATA_PATH / "test_lazy_fixtures.py"
+
+lazy_fixture_expected_output = {
+        "name": ".data",
+        "path": str(TEST_DATA_PATH),
+        "type_": "folder",
+        "children": [
+            {
+                "name": "test_lazy_fixtures.py",
+                "path": str(test_lazy_fixture_path),
+                "type_": "file",
+                "id_": str(test_lazy_fixture_path),
+                "children": [
+                    {
+                        "name": "TestA",
+                        "path": str(test_lazy_fixture_path),
+                        "type_": "class",
+                        "children": [
+                            {
+                                "name": "test_a",
+                                "path": str(test_lazy_fixture_path),
+                                "type_": "function",
+                                "children": [
+                                    {
+                                        "name": "[fixture_a]",
+                                        "path": str(test_lazy_fixture_path),
+                                        "lineno": find_test_line_number(
+                                            "TestA::test_a",
+                                            test_lazy_fixture_path,
+                                        ),
+                                        "type_": "test",
+                                        "id_": get_absolute_test_id(
+                                            "test_lazy_fixtures.py::TestA::test_a[fixture_a]",
+                                            test_lazy_fixture_path,
+                                        ),
+                                        "runID": get_absolute_test_id(
+                                            "test_lazy_fixtures.py::TestA::test_a[fixture_a]",
+                                            test_lazy_fixture_path,
+                                        ),
+                                    },
+                                    {
+                                        "name": "[fixture_b]",
+                                        "path": str(test_lazy_fixture_path),
+                                        "lineno": find_test_line_number(
+                                            "TestA::test_a",
+                                            test_lazy_fixture_path,
+                                        ),
+                                        "type_": "test",
+                                        "id_": get_absolute_test_id(
+                                            "test_lazy_fixtures.py::TestA::test_a[fixture_b]",
+                                            test_lazy_fixture_path,
+                                        ),
+                                        "runID":get_absolute_test_id(
+                                            "test_lazy_fixtures.py::TestA::test_a[fixture_b]",
+                                            test_lazy_fixture_path,
+                                        ),
+                                    },
+                                ],
+                                "id_": "test_lazy_fixtures.py::test_a",
+                            }
+                        ],
+                        "id_": "test_lazy_fixtures.py::TestA",
+                    },
+                    {
+                        "name": "TestB",
+                        "path": str(test_lazy_fixture_path),
+                        "type_": "class",
+                        "children": [
+                            {
+                                "name": "test_a",
+                                "path": str(test_lazy_fixture_path),
+                                "type_": "function",
+                                "children": [
+                                    {
+                                        "name": "[fixture_a]",
+                                        "path": str(test_lazy_fixture_path),
+                                        "lineno": find_test_line_number(
+                                            "TestB::test_a",
+                                            test_lazy_fixture_path,
+                                        ),
+                                        "type_": "test",
+                                        "id_": get_absolute_test_id(
+                                            "test_lazy_fixtures.py::TestB::test_a[fixture_a]",
+                                            test_lazy_fixture_path,
+                                        ),
+                                        "runID":get_absolute_test_id(
+                                            "test_lazy_fixtures.py::TestB::test_a[fixture_a]",
+                                            test_lazy_fixture_path,
+                                        ),
+                                    },
+                                    {
+                                        "name": "[fixture_c]",
+                                        "path": str(test_lazy_fixture_path),
+                                        "lineno": find_test_line_number(
+                                            "TestB::test_a",
+                                            test_lazy_fixture_path,
+                                        ),
+                                        "type_": "test",
+                                        "id_": get_absolute_test_id(
+                                            "test_lazy_fixtures.py::TestB::test_a[fixture_c]",
+                                            test_lazy_fixture_path,
+                                        ),
+                                        "runID":get_absolute_test_id(
+                                            "test_lazy_fixtures.py::TestB::test_a[fixture_c]",
+                                            test_lazy_fixture_path,
+                                        ),
+                                    },
+                                ],
+                                "id_": "test_lazy_fixtures.py::test_a",
+                            }
+                        ],
+                        "id_": "test_lazy_fixtures.py::TestB",
+                    },
+                ],
+            }
+        ],
+        "id_": str(TEST_DATA_PATH),
+    }
