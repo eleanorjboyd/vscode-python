@@ -19,12 +19,14 @@ export enum DiscoveryUsingWorkers {
 export enum EnableTestAdapterRewrite {
     experiment = 'pythonTestAdapter',
 }
-// Experiment to enable smart shift+enter, advance cursor.
-export enum EnableREPLSmartSend {
-    experiment = 'pythonREPLSmartSend',
-}
 
 // Experiment to recommend installing the tensorboard extension.
 export enum RecommendTensobardExtension {
     experiment = 'pythonRecommendTensorboardExt',
+}
+
+// Experiment to enable triggering venv creation when users install with `pip`
+// in a global environment
+export enum CreateEnvOnPipInstallTrigger {
+    experiment = 'pythonCreateEnvOnPipInstall',
 }

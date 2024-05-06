@@ -11,13 +11,18 @@ import type { SemVer } from 'semver';
 import { IContextKeyManager, IWorkspaceService } from '../common/application/types';
 import { JUPYTER_EXTENSION_ID, PYLANCE_EXTENSION_ID } from '../common/constants';
 import { GLOBAL_MEMENTO, IExtensions, IMemento, Resource } from '../common/types';
-import { getDebugpyPackagePath } from '../debugger/extension/adapter/remoteLaunchers';
 import { IEnvironmentActivationService } from '../interpreter/activation/types';
 import { IInterpreterQuickPickItem, IInterpreterSelector } from '../interpreter/configuration/types';
-import { ICondaService, IInterpreterDisplay, IInterpreterStatusbarVisibilityFilter } from '../interpreter/contracts';
-import { PythonEnvironment } from '../pythonEnvironments/info';
+import {
+    ICondaService,
+    IInterpreterDisplay,
+    IInterpreterService,
+    IInterpreterStatusbarVisibilityFilter,
+} from '../interpreter/contracts';
 import { PylanceApi } from '../activation/node/pylanceApi';
 import { ExtensionContextKey } from '../common/application/contextKeys';
+import { getDebugpyPath } from '../debugger/pythonDebugger';
+import type { Environment } from '../api/types';
 
 type PythonApiForJupyterExtension = {
     /**
@@ -25,7 +30,7 @@ type PythonApiForJupyterExtension = {
      */
     getActivatedEnvironmentVariables(
         resource: Resource,
-        interpreter?: PythonEnvironment,
+        interpreter: Environment,
         allowExceptions?: boolean,
     ): Promise<NodeJS.ProcessEnv | undefined>;
     getKnownSuggestions(resource: Resource): IInterpreterQuickPickItem[];
@@ -34,7 +39,7 @@ type PythonApiForJupyterExtension = {
      */
     getSuggestions(resource: Resource): Promise<IInterpreterQuickPickItem[]>;
     /**
-     * Returns path to where `debugpy` is. In python extension this is `/pythonFiles/lib/python`.
+     * Returns path to where `debugpy` is. In python extension this is `/python_files/lib/python`.
      */
     getDebuggerPath(): Promise<string>;
     /**
@@ -57,14 +62,6 @@ type PythonApiForJupyterExtension = {
      * @param func : The function that Python should call when requesting the Python path.
      */
     registerJupyterPythonPathFunction(func: (uri: Uri) => Promise<string | undefined>): void;
-
-    /**
-     * Call to provide a function that the Python extension can call to request the notebook
-     * document URI related to a particular text document URI, or undefined if there is no
-     * associated notebook.
-     * @param func : The function that Python should call when requesting the notebook URI.
-     */
-    registerGetNotebookUriForTextDocumentUriFunction(func: (textDocumentUri: Uri) => Uri | undefined): void;
 };
 
 type JupyterExtensionApi = {
@@ -81,10 +78,6 @@ export class JupyterExtensionIntegration {
 
     private pylanceExtension: Extension<PylanceApi> | undefined;
 
-    private jupyterPythonPathFunction: ((uri: Uri) => Promise<string | undefined>) | undefined;
-
-    private getNotebookUriForTextDocumentUriFunction: ((textDocumentUri: Uri) => Uri | undefined) | undefined;
-
     constructor(
         @inject(IExtensions) private readonly extensions: IExtensions,
         @inject(IInterpreterSelector) private readonly interpreterSelector: IInterpreterSelector,
@@ -94,6 +87,7 @@ export class JupyterExtensionIntegration {
         @inject(IWorkspaceService) private workspaceService: IWorkspaceService,
         @inject(ICondaService) private readonly condaService: ICondaService,
         @inject(IContextKeyManager) private readonly contextManager: IContextKeyManager,
+        @inject(IInterpreterService) private interpreterService: IInterpreterService,
     ) {}
 
     public registerApi(jupyterExtensionApi: JupyterExtensionApi): JupyterExtensionApi | undefined {
@@ -106,14 +100,17 @@ export class JupyterExtensionIntegration {
         jupyterExtensionApi.registerPythonApi({
             getActivatedEnvironmentVariables: async (
                 resource: Resource,
-                interpreter?: PythonEnvironment,
+                env: Environment,
                 allowExceptions?: boolean,
-            ) => this.envActivation.getActivatedEnvironmentVariables(resource, interpreter, allowExceptions),
+            ) => {
+                const interpreter = await this.interpreterService.getInterpreterDetails(env.path);
+                return this.envActivation.getActivatedEnvironmentVariables(resource, interpreter, allowExceptions);
+            },
             getSuggestions: async (resource: Resource): Promise<IInterpreterQuickPickItem[]> =>
                 this.interpreterSelector.getAllSuggestions(resource),
             getKnownSuggestions: (resource: Resource): IInterpreterQuickPickItem[] =>
                 this.interpreterSelector.getSuggestions(resource),
-            getDebuggerPath: async () => dirname(getDebugpyPackagePath()),
+            getDebuggerPath: async () => dirname(await getDebugpyPath()),
             getInterpreterPathSelectedForJupyterServer: () =>
                 this.globalState.get<string | undefined>('INTERPRETER_PATH_SELECTED_FOR_JUPYTER_SERVER'),
             registerInterpreterStatusFilter: this.interpreterDisplay.registerVisibilityFilter.bind(
@@ -123,8 +120,6 @@ export class JupyterExtensionIntegration {
             getCondaVersion: () => this.condaService.getCondaVersion(),
             registerJupyterPythonPathFunction: (func: (uri: Uri) => Promise<string | undefined>) =>
                 this.registerJupyterPythonPathFunction(func),
-            registerGetNotebookUriForTextDocumentUriFunction: (func: (textDocumentUri: Uri) => Uri | undefined) =>
-                this.registerGetNotebookUriForTextDocumentUriFunction(func),
         });
         return undefined;
     }
@@ -169,28 +164,9 @@ export class JupyterExtensionIntegration {
     }
 
     private registerJupyterPythonPathFunction(func: (uri: Uri) => Promise<string | undefined>) {
-        this.jupyterPythonPathFunction = func;
-
         const api = this.getPylanceApi();
         if (api) {
             api.notebook!.registerJupyterPythonPathFunction(func);
         }
-    }
-
-    public getJupyterPythonPathFunction(): ((uri: Uri) => Promise<string | undefined>) | undefined {
-        return this.jupyterPythonPathFunction;
-    }
-
-    public registerGetNotebookUriForTextDocumentUriFunction(func: (textDocumentUri: Uri) => Uri | undefined): void {
-        this.getNotebookUriForTextDocumentUriFunction = func;
-
-        const api = this.getPylanceApi();
-        if (api) {
-            api.notebook!.registerGetNotebookUriForTextDocumentUriFunction(func);
-        }
-    }
-
-    public getGetNotebookUriForTextDocumentUriFunction(): ((textDocumentUri: Uri) => Uri | undefined) | undefined {
-        return this.getNotebookUriForTextDocumentUriFunction;
     }
 }

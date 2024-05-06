@@ -14,8 +14,8 @@ import {
 } from 'vscode';
 import { ITestDebugLauncher, TestDiscoveryOptions } from '../../common/types';
 import { IPythonExecutionFactory } from '../../../common/process/types';
-import { Deferred } from '../../../common/utils/async';
 import { EnvironmentVariables } from '../../../common/variables/types';
+import { Deferred } from '../../../common/utils/async';
 
 export type TestRunInstanceOptions = TestRunOptions & {
     exclude?: readonly TestItem[];
@@ -148,7 +148,6 @@ export type TestCommandOptions = {
     workspaceFolder: Uri;
     cwd: string;
     command: TestDiscoveryCommand | TestExecutionCommand;
-    uuid: string;
     token?: CancellationToken;
     outChannel?: OutputChannel;
     debugBool?: boolean;
@@ -183,6 +182,7 @@ export interface ITestServer {
         runInstance?: TestRun,
         testIds?: string[],
         callback?: () => void,
+        executionFactory?: IPythonExecutionFactory,
     ): Promise<void>;
     serverReady(): Promise<void>;
     getPort(): number;
@@ -199,14 +199,14 @@ export interface ITestResultResolver {
         payload: DiscoveredTestPayload | EOTTestPayload,
         deferredTillEOT: Deferred<void>,
         token?: CancellationToken,
-    ): Promise<void>;
+    ): void;
     resolveExecution(
         payload: ExecutionTestPayload | EOTTestPayload,
         runInstance: TestRun,
         deferredTillEOT: Deferred<void>,
-    ): Promise<void>;
-    _resolveDiscovery(payload: DiscoveredTestPayload, token?: CancellationToken): Promise<void>;
-    _resolveExecution(payload: ExecutionTestPayload, runInstance: TestRun): Promise<void>;
+    ): void;
+    _resolveDiscovery(payload: DiscoveredTestPayload, token?: CancellationToken): void;
+    _resolveExecution(payload: ExecutionTestPayload, runInstance: TestRun): void;
 }
 export interface ITestDiscoveryAdapter {
     // ** first line old method signature, second line new method signature
@@ -228,7 +228,7 @@ export interface ITestExecutionAdapter {
     ): Promise<ExecutionTestPayload>;
 }
 
-// Same types as in pythonFiles/unittestadapter/utils.py
+// Same types as in python_files/unittestadapter/utils.py
 export type DiscoveredTestType = 'folder' | 'file' | 'class' | 'test';
 
 export type DiscoveredTestCommon = {
