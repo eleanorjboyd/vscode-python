@@ -63,6 +63,7 @@ export namespace Commands {
     export const Set_ShebangInterpreter = 'python.setShebangInterpreter';
     export const Start_REPL = 'python.startREPL';
     export const Tests_Configure = 'python.configureTests';
+    export const Test_Quick_Configure = 'python.quickConfig';
     export const TriggerEnvironmentSelection = 'python.triggerEnvSelection';
     export const ViewOutput = 'python.viewOutput';
 }

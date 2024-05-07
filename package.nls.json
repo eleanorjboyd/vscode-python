@@ -11,6 +11,7 @@
     "python.command.python.viewOutput.title": "Show Output",
     "python.command.python.installJupyter.title": "Install the Jupyter extension",
     "python.command.python.viewLanguageServerOutput.title": "Show Language Server Output",
+    "python.command.python.quickConfig.title": "Quick Test Config",
     "python.command.python.configureTests.title": "Configure Tests",
     "python.command.testing.rerunFailedTests.title": "Rerun Failed Tests",
     "python.command.python.execSelectionInTerminal.title": "Run Selection/Line in Python Terminal",

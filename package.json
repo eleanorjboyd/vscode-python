@@ -263,6 +263,11 @@
             },
             {
                 "category": "Python",
+                "command": "python.quickConfig",
+                "title": "%python.command.python.quickConfig.title%"
+            },
+            {
+                "category": "Python",
                 "command": "python.createTerminal",
                 "title": "%python.command.python.createTerminal.title%"
             },
@@ -1232,6 +1237,12 @@
                 },
                 {
                     "category": "Python",
+                    "command": "python.quickConfig",
+                    "title": "%python.command.python.quickConfig.title%",
+                    "when": "!virtualWorkspace && shellExecutionSupported"
+                },
+                {
+                    "category": "Python",
                     "command": "python.createEnvironment",
                     "title": "%python.command.python.createEnvironment.title%",
                     "when": "!virtualWorkspace && shellExecutionSupported"
@@ -1455,7 +1466,7 @@
         "viewsWelcome": [
             {
                 "view": "testing",
-                "contents": "We have detected pytest in your workspace, instead [run with unittest](http://example.com).\n[Run pytest quick discovery](command:python.configureTests)\n[create test config](command:python.configureTests)",
+                "contents": "We have detected pytest in your workspace, instead [run with unittest](http://example.com).\n[Run pytest quick discovery](command:python.quickConfig)\n[create test config](command:python.configureTests)",
                 "when": "!virtualWorkspace && shellExecutionSupported"
             }
         ],

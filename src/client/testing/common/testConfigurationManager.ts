@@ -94,6 +94,33 @@ export abstract class TestConfigurationManager implements ITestConfigurationMana
         return this.showQuickPick(items, options);
     }
 
+    protected async selectConfigType(): Promise<string[]> {
+        const options = {
+            ignoreFocusOut: true,
+            matchOnDescription: true,
+            matchOnDetail: true,
+            placeHolder: 'Select the configuration type(s)',
+            canPickMany: true, // Enable multi-select
+        };
+        const items: QuickPickItem[] = [
+            { label: 'run', description: 'Run configuration' },
+            { label: 'debug', description: 'Debug configuration' },
+            { label: 'discovery', description: 'Discovery configuration' },
+        ];
+        return this.showQuickPickMultiSelect(items, options);
+    }
+
+    protected async selectConfigName(): Promise<string> {
+        // will need to add verification of no repeated names
+        const options = {
+            ignoreFocusOut: true,
+            matchOnDescription: true,
+            matchOnDetail: true,
+            placeHolder: 'Enter the name of the configuration',
+        };
+        return this.showInputBox(options);
+    }
+
     protected getTestDirs(rootDir: string): Promise<string[]> {
         const fs = this.serviceContainer.get<IFileSystem>(IFileSystem);
         return fs.getSubDirectories(rootDir).then((subDirs) => {
@@ -117,8 +144,34 @@ export abstract class TestConfigurationManager implements ITestConfigurationMana
                 this.handleCancelled(); // This will throw an exception.
                 return;
             }
-
             def.resolve(item.label);
+        });
+        return def.promise;
+    }
+
+    private showQuickPickMultiSelect(items: QuickPickItem[], options: QuickPickOptions): Promise<string[]> {
+        const def = createDeferred<string[]>();
+        const appShell = this.serviceContainer.get<IApplicationShell>(IApplicationShell);
+        appShell.showQuickPick(items, options).then((item) => {
+            if (!item || !Array.isArray(item)) {
+                this.handleCancelled(); // This will throw an exception.
+                return;
+            }
+            const selectedLabels: string[] = item.map((i) => i.label);
+            def.resolve(selectedLabels);
+        });
+        return def.promise;
+    }
+
+    private showInputBox(options: QuickPickOptions): Promise<string> {
+        const def = createDeferred<string>();
+        const appShell = this.serviceContainer.get<IApplicationShell>(IApplicationShell);
+        appShell.showInputBox(options).then((value) => {
+            if (!value) {
+                this.handleCancelled(); // This will throw an exception.
+                return;
+            }
+            def.resolve(value);
         });
         return def.promise;
     }
