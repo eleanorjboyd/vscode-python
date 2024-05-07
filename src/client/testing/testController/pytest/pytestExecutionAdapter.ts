@@ -175,7 +175,7 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
                 const deferredTillExecClose: Deferred<void> = utils.createTestingDeferred();
                 // combine path to run script with run args
                 const scriptPath = path.join(fullPluginPath, 'vscode_pytest', 'run_pytest_script.py');
-                const runArgs = [scriptPath, ...utils.mapToArgs(testArgsMap)];
+                const runArgs = [scriptPath, ...testArgs];
                 traceInfo(`Running pytest with arguments: ${runArgs.join(' ')} for workspace ${uri.fsPath} \r\n`);
 
                 let resultProc: ChildProcess | undefined;
