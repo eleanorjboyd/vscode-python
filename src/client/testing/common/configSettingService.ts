@@ -1,9 +1,10 @@
 import { inject, injectable } from 'inversify';
 import { Uri, WorkspaceConfiguration } from 'vscode';
 import { IWorkspaceService } from '../../common/application/types';
-import { Product, TestConfig } from '../../common/types';
+import { Product } from '../../common/types';
 import { IServiceContainer } from '../../ioc/types';
 import { ITestConfigSettingsService, UnitTestProduct } from './types';
+import { TestConfig } from '../configuration/types';
 
 @injectable()
 export class TestConfigSettingsService implements ITestConfigSettingsService {

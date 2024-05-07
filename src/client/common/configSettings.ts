@@ -18,7 +18,7 @@ import { IInterpreterAutoSelectionProxyService } from '../interpreter/autoSelect
 import { sendTelemetryEvent } from '../telemetry';
 import { EventName } from '../telemetry/constants';
 import { sendSettingTelemetry } from '../telemetry/envFileTelemetry';
-import { ITestingSettings } from '../testing/configuration/types';
+import { ITestingSettings, TestConfig } from '../testing/configuration/types';
 import { IWorkspaceService } from './application/types';
 import { WorkspaceService } from './application/workspace';
 import { DEFAULT_INTERPRETER_SETTING, isTestExecution } from './constants';
@@ -33,7 +33,6 @@ import {
     ITensorBoardSettings,
     ITerminalSettings,
     Resource,
-    TestConfig,
 } from './types';
 import { debounceSync } from './utils/decorators';
 import { SystemVariables } from './variables/systemVariables';
@@ -328,6 +327,7 @@ export class PythonSettings implements IPythonSettings {
                     unittestEnabled: false,
                     pytestPath: 'pytest',
                     autoTestDiscoverOnSaveEnabled: true,
+                    configs: [],
                 } as ITestingSettings;
             }
         }
@@ -344,6 +344,7 @@ export class PythonSettings implements IPythonSettings {
                   unittestArgs: [],
                   unittestEnabled: false,
                   autoTestDiscoverOnSaveEnabled: true,
+                  configs: [],
               };
         this.testing.pytestPath = getAbsolutePath(systemVariables.resolveAny(this.testing.pytestPath), workspaceRoot);
         if (this.testing.cwd) {

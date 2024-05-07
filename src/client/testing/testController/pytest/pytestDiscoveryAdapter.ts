@@ -85,35 +85,6 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
             pytestArgs = addValueIfKeyNotExist(pytestArgs, '--rootdir', cwd);
         }
 
-<<<<<<< HEAD
-        // check for symbolic path
-        const stats = await fs.promises.lstat(cwd);
-        const resolvedPath = await fs.promises.realpath(cwd);
-        let isSymbolicLink = false;
-        if (stats.isSymbolicLink()) {
-            isSymbolicLink = true;
-            traceWarn('The cwd is a symbolic link.');
-        } else if (resolvedPath !== cwd) {
-            traceWarn(
-                'The cwd resolves to a different path, checking if it has a symbolic link somewhere in its path.',
-            );
-            isSymbolicLink = await hasSymlinkParent(cwd);
-        }
-        if (isSymbolicLink) {
-            traceWarn("Symlink found, adding '--rootdir' to pytestArgs only if it doesn't already exist. cwd: ", cwd);
-            pytestArgs = addValueIfKeyNotExist(pytestArgs, '--rootdir', cwd);
-=======
-        const stats = fs.lstatSync(cwd);
-        if (stats.isSymbolicLink()) {
-            traceWarn(
-                "The cwd is a symbolic link, adding '--rootdir' to pytestArgsMap only if it doesn't already exist.",
-            );
-            pytestArgsMap = addArgIfNotExist(pytestArgsMap, '--rootdir', cwd);
-        } else {
-            console.log('The path is not a symbolic link.');
->>>>>>> 638eb3998 (symlink solution for pytest)
-        }
-
         // get and edit env vars
         const mutableEnv = {
             ...(await this.envVarsService?.getEnvironmentVariables(uri)),

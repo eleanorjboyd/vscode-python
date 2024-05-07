@@ -180,7 +180,6 @@ export interface IPythonSettings {
     readonly defaultInterpreterPath: string;
     readonly tensorBoard: ITensorBoardSettings | undefined;
     readonly REPL: IREPLSettings;
-    readonly configs: TestConfig[];
     register(): void;
 }
 

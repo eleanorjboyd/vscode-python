@@ -19,7 +19,7 @@ import {
     TestRunProfile,
 } from 'vscode';
 import { IExtensionSingleActivationService } from '../../activation/types';
-import { ICommandManager, IDocumentManager, IWorkspaceService } from '../../common/application/types';
+import { ICommandManager, IWorkspaceService } from '../../common/application/types';
 import * as constants from '../../common/constants';
 import { IPythonExecutionFactory } from '../../common/process/types';
 import { IConfigurationService, IDisposableRegistry, ITestOutputChannel, Resource } from '../../common/types';
@@ -51,7 +51,6 @@ import { IServiceContainer } from '../../ioc/types';
 import { PythonResultResolver } from './common/resultResolver';
 import { onDidSaveTextDocument } from '../../common/vscodeApis/workspaceApis';
 import { IEnvironmentVariablesProvider } from '../../common/variables/types';
-import { TestConfig } from '../configuration/types';
 
 // Types gymnastics to make sure that sendTriggerTelemetry only accepts the correct types.
 type EventPropertyType = IEventNamePropertyMapping[EventName.UNITTEST_DISCOVERY_TRIGGER];
@@ -103,7 +102,6 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
         @inject(ITestOutputChannel) private readonly testOutputChannel: ITestOutputChannel,
         @inject(IServiceContainer) private readonly serviceContainer: IServiceContainer,
         @inject(IEnvironmentVariablesProvider) private readonly envVarsService: IEnvironmentVariablesProvider,
-        @inject(IDocumentManager) private readonly documentManager: IDocumentManager,
     ) {
         this.refreshCancellation = new CancellationTokenSource();
 
