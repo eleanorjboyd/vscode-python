@@ -161,6 +161,8 @@ export class UnitTestConfigurationService implements ITestConfigurationService {
         const factory = this.serviceContainer.get<ITestConfigurationManagerFactory>(ITestConfigurationManagerFactory);
         const delayed = new BufferedTestConfigSettingsService();
         const configMgr = factory.create(wkspace, Product.pytest, delayed);
+        // SPOT 1.3: when someone does a quick run setup, do we want that to be created and added to their settings?
+        // what would be options we would want to test
         await configMgr.enable();
         await configMgr
             .enable()

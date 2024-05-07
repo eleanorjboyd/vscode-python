@@ -31,7 +31,7 @@ import { IEventNamePropertyMapping, sendTelemetryEvent } from '../../telemetry';
 import { EventName } from '../../telemetry/constants';
 import { PYTEST_PROVIDER, UNITTEST_PROVIDER } from '../common/constants';
 import { TestProvider } from '../types';
-import { DebugTestTag, getNodeByUri, RunTestTag } from './common/testItemUtilities';
+import { getNodeByUri, RunTestTag } from './common/testItemUtilities';
 import { pythonTestAdapterRewriteEnabled } from './common/utils';
 import {
     ITestController,
@@ -51,6 +51,7 @@ import { IServiceContainer } from '../../ioc/types';
 import { PythonResultResolver } from './common/resultResolver';
 import { onDidSaveTextDocument } from '../../common/vscodeApis/workspaceApis';
 import { IEnvironmentVariablesProvider } from '../../common/variables/types';
+import { TestConfig, configSubType, configType } from '../configuration/types';
 
 // Types gymnastics to make sure that sendTriggerTelemetry only accepts the correct types.
 type EventPropertyType = IEventNamePropertyMapping[EventName.UNITTEST_DISCOVERY_TRIGGER];
@@ -122,20 +123,20 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
         this.disposables.push(delayTrigger);
         this.refreshData = delayTrigger;
 
-        const runProfileA = this.testController.createRunProfile(
-            'simple test config',
-            TestRunProfileKind.Run,
-            this.runTests.bind(this),
-            true,
-            RunTestTag,
-        );
-        const runProfileb = this.testController.createRunProfile(
-            'simple test config',
-            TestRunProfileKind.Debug,
-            this.runTests.bind(this),
-            false,
-            DebugTestTag,
-        );
+        // const runProfileA = this.testController.createRunProfile(
+        //     'simple test config',
+        //     TestRunProfileKind.Run,
+        //     this.runTests.bind(this),
+        //     true,
+        //     RunTestTag,
+        // );
+        // const runProfileb = this.testController.createRunProfile(
+        //     'simple test config',
+        //     TestRunProfileKind.Debug,
+        //     this.runTests.bind(this),
+        //     false,
+        //     DebugTestTag,
+        // );
         // const runProfilec = this.testController.createRunProfile(
         //     'test config: test data',
         //     TestRunProfileKind.Debug,
@@ -188,11 +189,11 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
         //     //     editor.selection = new Selection(position, position);
         //     // });
         // }
-        this.disposables.push(
-            // CC: create specific run profiles
-            runProfileA,
-            runProfileb,
-        );
+        // this.disposables.push(
+        //     // CC: create specific run profiles
+        //     runProfileA,
+        //     runProfileb,
+        // );
         this.testController.resolveHandler = this.resolveChildren.bind(this);
         this.testController.refreshHandler = (token: CancellationToken) => {
             this.disposables.push(
@@ -267,6 +268,9 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
                 this.watchForSettingsChanges(workspace);
                 this.watchForTestContentChangeOnSave();
             }
+
+            // load configs from settings
+            this.refreshTestConfigs(workspace.uri, { forceRefresh: true });
         });
     }
 
@@ -625,70 +629,83 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
         }
     }
 
+    /**
+     * Refreshes the test configurations by updating the existing test run profiles based on the latest settings provided in `settings.json`.
+     * This function ensures that the test run profiles in the test controller are synchronized with the test configurations defined in the settings.
+     *
+     * @param {Resource} [uri] - The URI of the resource for which the test configurations need to be refreshed. If not provided, function does nothing.
+     * @param {TestRefreshOptions} [options] - `forceRefresh`: ignore cached configurations if true
+     *
+     * @returns {Promise<void>} A promise that resolves when the test configurations have been refreshed.
+     *
+     */
     public refreshTestConfigs(uri?: Resource, options?: TestRefreshOptions): Promise<void> {
-        if (options?.forceRefresh) {
-            if (uri === undefined) {
-                traceVerbose('uri undefined, refresh test configs');
-            }
+        // review if this is necessary
+        console.log('was it a forced refresh?', options?.forceRefresh);
 
-            traceVerbose('Testing: refresh CONFIGS');
-            // return this.refreshTestDataInternal(uri);
-            // this.testController.createRunProfile;
+        if (uri === undefined) {
+            // if not uri, refresh all test configs
+            traceVerbose('RefreshTestConfig,triggering refresh on all test configs.');
+            for (const workspace of this.workspaceService.workspaceFolders || []) {
+                this.refreshTestConfigs(workspace.uri, options);
+            }
         }
+
         // get current test configs from this.testRunProfiles
-        const currProfiles: TestRunProfile[] = this.testRunProfiles;
-        console.log('currProfiles', currProfiles);
+        let tempProfileList: TestRunProfile[] = this.testRunProfiles;
 
         // get test configs from settings.json
         const settings = this.configSettings.getSettings(uri);
         const { configs } = settings.testing;
-        console.log('testConfigs', configs);
 
-        const settingsConfigsIds: string[] = [];
-        for (const config of configs) {
-            settingsConfigsIds.push(config.name);
+        // clear all current test configs
+        // QUESTION: do test configs hold any "memory?" is it useful keeping them around?
+        for (const profile of tempProfileList) {
+            profile.dispose();
         }
-        const currProfilesIds: string[] = [];
-        for (const currProfile of currProfiles) {
-            currProfilesIds.push(currProfile.label);
+        tempProfileList = [];
+
+        for (const config of configs) {
+            // only add configs that are of `test` type not `terminal` type
+            if (config.type === configType.test) {
+                this.createRunProfilesFromConfig(config, tempProfileList);
+                tempProfileList.push(newProfile);
+            }
         }
 
-        // Compare the arrays and create new run profiles for missing configs
-        const newProfiles: TestRunProfile[] = [];
-        for (const config of configs) {
-            if (!currProfilesIds.includes(config.name)) {
-                const newProfile: TestRunProfile = this.testController.createRunProfile(
+        // Update the runProfiles list with the updated list after removals / additions
+        this.testRunProfiles = tempProfileList;
+        return Promise.resolve();
+    }
+
+    public createRunProfilesFromConfig(config: TestConfig, tempProfileList: TestRunProfile[]): void {
+        const profileTypeList: configSubType[] | undefined = config.subtype;
+        if (profileTypeList === undefined || profileTypeList.length === 0) {
+            // need to decide how "no subtype" is handled (do we want it undefined? not set?)
+            traceVerbose(
+                'Adding all possible profiles since no profile subtype was provided for config: ',
+                config.name,
+            );
+        } else {
+            if (profileTypeList.includes(configSubType.testRun)) {
+                // create run profile
+                const profile = this.testController.createRunProfile(
                     config.name,
                     TestRunProfileKind.Run,
                     this.runTests.bind(this),
-                    false,
-                    RunTestTag,
                 );
-                newProfiles.push(newProfile);
+                tempProfileList.push(profile);
             }
-        }
-
-        // Dispose of profiles that are no longer in settings.json
-        const profilesToRemove: TestRunProfile[] = [];
-        for (const currProfile of currProfiles) {
-            if (!settingsConfigsIds.includes(currProfile.label)) {
-                profilesToRemove.push(currProfile);
+            if (profileTypeList.includes(configSubType.testDebug)) {
+                // create debug profile
+                const profile = this.testController.createRunProfile(
+                    config.name,
+                    TestRunProfileKind.Debug,
+                    this.runTests.bind(this),
+                );
+                tempProfileList.push(profile);
             }
+            // no profile made for discovery as they are not handled by the "runProfiles"
         }
-        for (const profileToRemove of profilesToRemove) {
-            profileToRemove.dispose();
-        }
-
-        // Add new profiles to the profile list
-        currProfiles.push(...newProfiles);
-
-        // Update the controller with the updated profile list
-        this.testRunProfiles = currProfiles;
-
-        // dispose of test configs that are no longer in settings.json
-        // create new test configs that are in settings.json but not in this.testRunProfiles
-
-        // this.refreshData.trigger(uri, false);
-        return Promise.resolve();
     }
 }

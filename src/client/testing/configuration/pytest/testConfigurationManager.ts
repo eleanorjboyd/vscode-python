@@ -6,7 +6,7 @@ import { IServiceContainer } from '../../../ioc/types';
 import { TestConfigurationManager } from '../../common/testConfigurationManager';
 import { ITestConfigSettingsService } from '../../common/types';
 import { traceInfo } from '../../../logging';
-import { TestConfig } from '../types';
+import { TestConfig, configSubType, configType, frameworkType } from '../types';
 
 export class ConfigurationManager extends TestConfigurationManager {
     constructor(workspace: Uri, serviceContainer: IServiceContainer, cfg?: ITestConfigSettingsService) {
@@ -33,8 +33,31 @@ export class ConfigurationManager extends TestConfigurationManager {
         const configName = await this.selectConfigName();
         console.log(configName);
         // config type (discovery, run, debug)
-        const configTypeList: string[] = await this.selectConfigType();
-        console.log(configTypeList);
+        const configSubTypeListRaw: string[] = await this.selectConfigType();
+
+        // convert user selected list to the right enum type
+        const configSubTypeList: configSubType[] = [];
+        if (configSubTypeListRaw.length === 0) {
+            configSubTypeList.push(...[configSubType.testRun, configSubType.testDebug, configSubType.testDiscovery]);
+        } else {
+            for (const subtype of configSubTypeListRaw) {
+                switch (subtype) {
+                    case 'testRun':
+                        configSubTypeList.push(configSubType.testRun);
+                        break;
+                    case 'testDiscovery':
+                        configSubTypeList.push(configSubType.testDiscovery);
+                        break;
+                    case 'testDebug':
+                        configSubTypeList.push(configSubType.testDebug);
+                        break;
+                    default:
+                        console.log(`Unknown subtype: ${subtype}`);
+                        break;
+                }
+            }
+        }
+
         // test directory
         const subDirs = await this.getTestDirs(wkspace.fsPath);
         const testDir = await this.selectTestDir(wkspace.fsPath, subDirs, options);
@@ -50,20 +73,15 @@ export class ConfigurationManager extends TestConfigurationManager {
         }
         const configArg: TestConfig = {
             name: configName,
-            type: configTypeList,
+            type: configType.test,
+            subtype: configSubTypeList,
             args: [],
-            framework: 'pytest',
+            framework: frameworkType.pytest,
         };
         await this.testConfigSettingsService.updateTestArgs(wkspace.fsPath, Product.pytest, configArg);
 
         // print out the traceInfo the entire new configuration
-        const config = {
-            name: configName,
-            type: configTypeList,
-            args: [],
-            framework: 'pytest',
-        };
-        traceInfo('THE UPDATED CONFIG IS AS FOLLOWS \n \n:', config);
+        traceInfo('THE UPDATED CONFIG IS AS FOLLOWS \n \n:', configArg);
     }
 
     private async getConfigFiles(rootDir: string): Promise<string[]> {
