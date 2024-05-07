@@ -169,9 +169,9 @@ suite('End to End Tests: test adapters', () => {
             return Promise.resolve();
         };
 
-    //     // set workspace to test workspace folder and set up settings
+        // set workspace to test workspace folder and set up settings
 
-    //     configService.getSettings(workspaceUri).testing.unittestArgs = ['-s', '.', '-p', '*test*.py'];
+        configService.getSettings(workspaceUri).testing.unittestArgs = ['-s', '.', '-p', '*test*.py'];
 
         // run unittest discovery
         const discoveryAdapter = new UnittestTestDiscoveryAdapter(
@@ -184,37 +184,37 @@ suite('End to End Tests: test adapters', () => {
         await discoveryAdapter.discoverTests(workspaceUri, pythonExecFactory).finally(() => {
             // verification after discovery is complete
 
-    //         // 1. Check the status is "success"
-    //         assert.strictEqual(
-    //             actualData.status,
-    //             'success',
-    //             `Expected status to be 'success' instead status is ${actualData.status}`,
-    //         );
-    //         // 2. Confirm no errors
-    //         assert.strictEqual(actualData.error, undefined, "Expected no errors in 'error' field");
-    //         // 3. Confirm tests are found
-    //         assert.ok(actualData.tests, 'Expected tests to be present');
+            // 1. Check the status is "success"
+            assert.strictEqual(
+                actualData.status,
+                'success',
+                `Expected status to be 'success' instead status is ${actualData.status}`,
+            );
+            // 2. Confirm no errors
+            assert.strictEqual(actualData.error, undefined, "Expected no errors in 'error' field");
+            // 3. Confirm tests are found
+            assert.ok(actualData.tests, 'Expected tests to be present');
 
-    //         assert.strictEqual(callCount, 1, 'Expected _resolveDiscovery to be called once');
-    //     });
-    // });
+            assert.strictEqual(callCount, 1, 'Expected _resolveDiscovery to be called once');
+        });
+    });
 
-    // test('unittest discovery adapter large workspace', async () => {
-    //     // result resolver and saved data for assertions
-    //     let actualData: {
-    //         cwd: string;
-    //         tests?: unknown;
-    //         status: 'success' | 'error';
-    //         error?: string[];
-    //     };
-    //     resultResolver = new PythonResultResolver(testController, unittestProvider, workspaceUri);
-    //     let callCount = 0;
-    //     resultResolver._resolveDiscovery = async (payload, _token?) => {
-    //         traceLog(`resolveDiscovery ${payload}`);
-    //         callCount = callCount + 1;
-    //         actualData = payload;
-    //         return Promise.resolve();
-    //     };
+    test('unittest discovery adapter large workspace', async () => {
+        // result resolver and saved data for assertions
+        let actualData: {
+            cwd: string;
+            tests?: unknown;
+            status: 'success' | 'error';
+            error?: string[];
+        };
+        resultResolver = new PythonResultResolver(testController, unittestProvider, workspaceUri);
+        let callCount = 0;
+        resultResolver._resolveDiscovery = async (payload, _token?) => {
+            traceLog(`resolveDiscovery ${payload}`);
+            callCount = callCount + 1;
+            actualData = payload;
+            return Promise.resolve();
+        };
 
         // set settings to work for the given workspace
         workspaceUri = Uri.parse(rootPathLargeWorkspace);
@@ -239,149 +239,10 @@ suite('End to End Tests: test adapters', () => {
             // 3. Confirm tests are found
             assert.ok(actualData.tests, 'Expected tests to be present');
 
-    //         assert.strictEqual(callCount, 1, 'Expected _resolveDiscovery to be called once');
-    //     });
-    // });
+            assert.strictEqual(callCount, 1, 'Expected _resolveDiscovery to be called once');
+        });
+    });
     test('pytest discovery adapter small workspace', async () => {
-        // result resolver and saved data for assertions
-        let actualData: {
-            cwd: string;
-            tests?: unknown;
-            status: 'success' | 'error';
-            error?: string[];
-        };
-        // set workspace to test workspace folder
-        workspaceUri = Uri.parse(rootPathSmallWorkspace);
-        resultResolver = new PythonResultResolver(testController, pytestProvider, workspaceUri);
-        let callCount = 0;
-        resultResolver._resolveDiscovery = async (payload, _token?) => {
-            callCount = callCount + 1;
-            actualData = payload;
-            return Promise.resolve();
-        };
-        // run pytest discovery
-        const discoveryAdapter = new PytestTestDiscoveryAdapter(
-            configService,
-            testOutputChannel.object,
-            resultResolver,
-            envVarsService,
-        );
-
-        await discoveryAdapter.discoverTests(workspaceUri, pythonExecFactory).finally(() => {
-            // verification after discovery is complete
-
-            // 1. Check the status is "success"
-            assert.strictEqual(
-                actualData.status,
-                'success',
-                `Expected status to be 'success' instead status is ${actualData.status}`,
-            ); // 2. Confirm no errors
-            assert.strictEqual(actualData.error?.length, 0, "Expected no errors in 'error' field");
-            // 3. Confirm tests are found
-            assert.ok(actualData.tests, 'Expected tests to be present');
-
-            assert.strictEqual(callCount, 1, 'Expected _resolveDiscovery to be called once');
-        });
-    });
-    test('pytest discovery adapter nested symlink', async () => {
-        if (os.platform() === 'win32') {
-            console.log('Skipping test for windows');
-            return;
-        }
-
-        // result resolver and saved data for assertions
-        let actualData: {
-            cwd: string;
-            tests?: unknown;
-            status: 'success' | 'error';
-            error?: string[];
-        };
-        // set workspace to test workspace folder
-        const workspacePath = path.join(nestedSymlink, 'custom_sub_folder');
-        const workspacePathParent = nestedSymlink;
-        workspaceUri = Uri.parse(workspacePath);
-        const filePath = path.join(workspacePath, 'test_simple.py');
-        const stats = fs.lstatSync(workspacePathParent);
-
-        // confirm that the path is a symbolic link
-        assert.ok(stats.isSymbolicLink(), 'The PARENT path is not a symbolic link but must be for this test.');
-
-        resultResolver = new PythonResultResolver(testController, pytestProvider, workspaceUri);
-        let callCount = 0;
-        resultResolver._resolveDiscovery = async (payload, _token?) => {
-            traceLog(`resolveDiscovery ${payload}`);
-            callCount = callCount + 1;
-            actualData = payload;
-            return Promise.resolve();
-        };
-
-        // set settings to work for the given workspace
-        workspaceUri = Uri.parse(rootPathLargeWorkspace);
-        configService.getSettings(workspaceUri).testing.unittestArgs = ['-s', '.', '-p', '*test*.py'];
-        // run discovery
-        const discoveryAdapter = new UnittestTestDiscoveryAdapter(
-            configService,
-            testOutputChannel.object,
-            resultResolver,
-            envVarsService,
-        );
-        configService.getSettings(workspaceUri).testing.pytestArgs = [];
-
-        await discoveryAdapter.discoverTests(workspaceUri, pythonExecFactory).finally(() => {
-            // 1. Check the status is "success"
-            assert.strictEqual(
-                actualData.status,
-                'success',
-                `Expected status to be 'success' instead status is ${actualData.status}`,
-            ); // 2. Confirm no errors
-            assert.strictEqual(actualData.error?.length, 0, "Expected no errors in 'error' field");
-            // 3. Confirm tests are found
-            assert.ok(actualData.tests, 'Expected tests to be present');
-            // 4. Confirm that the cwd returned is the symlink path and the test's path is also using the symlink as the root
-            if (process.platform === 'win32') {
-                // covert string to lowercase for windows as the path is case insensitive
-                traceLog('windows machine detected, converting path to lowercase for comparison');
-                const a = actualData.cwd.toLowerCase();
-                const b = filePath.toLowerCase();
-                const testSimpleActual = (actualData.tests as {
-                    children: {
-                        path: string;
-                    }[];
-                }).children[0].path.toLowerCase();
-                const testSimpleExpected = filePath.toLowerCase();
-                assert.strictEqual(a, b, `Expected cwd to be the symlink path actual: ${a} expected: ${b}`);
-                assert.strictEqual(
-                    testSimpleActual,
-                    testSimpleExpected,
-                    `Expected test path to be the symlink path actual: ${testSimpleActual} expected: ${testSimpleExpected}`,
-                );
-            } else {
-                assert.strictEqual(
-                    path.join(actualData.cwd),
-                    path.join(workspacePath),
-                    'Expected cwd to be the symlink path, check for non-windows machines',
-                );
-                assert.strictEqual(
-                    (actualData.tests as {
-                        children: {
-                            path: string;
-                        }[];
-                    }).children[0].path,
-                    filePath,
-                    'Expected test path to be the symlink path, check for non windows machines',
-                );
-            }
-
-            // 5. Confirm that resolveDiscovery was called once
-            assert.strictEqual(callCount, 1, 'Expected _resolveDiscovery to be called once');
-        });
-    });
-    test('pytest discovery adapter small workspace with symlink', async () => {
-        if (os.platform() === 'win32') {
-            console.log('Skipping test for windows');
-            return;
-        }
-
         // result resolver and saved data for assertions
         let actualData: {
             cwd: string;
