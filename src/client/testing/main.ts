@@ -172,6 +172,7 @@ export class UnitTestManagementService implements IExtensionActivationService {
                     this.configureTests(false, resource).ignoreErrors();
                     traceVerbose('Testing: Trigger refresh after config change');
                     this.testController?.refreshTestData(resource, { forceRefresh: true });
+                    this.testController?.refreshTestConfigs(resource, { forceRefresh: true });
                 },
             ),
             commandManager.registerCommand(
@@ -183,6 +184,7 @@ export class UnitTestManagementService implements IExtensionActivationService {
                     this.configureTests(true, resource).ignoreErrors();
                     traceVerbose('Testing: Trigger refresh after config change');
                     this.testController?.refreshTestData(resource, { forceRefresh: true });
+                    this.testController?.refreshTestConfigs(resource, { forceRefresh: true });
                 },
             ),
         );

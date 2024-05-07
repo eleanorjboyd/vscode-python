@@ -16,6 +16,7 @@ import {
     Uri,
     EventEmitter,
     TextDocument,
+    TestRunProfile,
 } from 'vscode';
 import { IExtensionSingleActivationService } from '../../activation/types';
 import { ICommandManager, IDocumentManager, IWorkspaceService } from '../../common/application/types';
@@ -50,6 +51,7 @@ import { IServiceContainer } from '../../ioc/types';
 import { PythonResultResolver } from './common/resultResolver';
 import { onDidSaveTextDocument } from '../../common/vscodeApis/workspaceApis';
 import { IEnvironmentVariablesProvider } from '../../common/variables/types';
+import { TestConfig } from '../configuration/types';
 
 // Types gymnastics to make sure that sendTriggerTelemetry only accepts the correct types.
 type EventPropertyType = IEventNamePropertyMapping[EventName.UNITTEST_DISCOVERY_TRIGGER];
@@ -65,6 +67,8 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
     private readonly triggerTypes: TriggerType[] = [];
 
     private readonly testController: TestController;
+
+    private testRunProfiles: TestRunProfile[];
 
     private readonly refreshData: IDelayedTrigger;
 
@@ -105,6 +109,7 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
 
         this.testController = tests.createTestController('python-tests', 'Python Tests');
         this.disposables.push(this.testController);
+        this.testRunProfiles = [];
 
         const delayTrigger = new DelayedTrigger(
             (uri: Uri, invalidate: boolean) => {
@@ -120,33 +125,33 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
         this.refreshData = delayTrigger;
 
         const runProfileA = this.testController.createRunProfile(
-            'test config: with coverage',
+            'simple test config',
             TestRunProfileKind.Run,
             this.runTests.bind(this),
             true,
             RunTestTag,
         );
         const runProfileb = this.testController.createRunProfile(
-            'test config: no coverage',
+            'simple test config',
             TestRunProfileKind.Debug,
             this.runTests.bind(this),
             false,
             DebugTestTag,
         );
-        const runProfilec = this.testController.createRunProfile(
-            'test config: test data',
-            TestRunProfileKind.Debug,
-            this.runTests.bind(this),
-            true,
-            DebugTestTag,
-        );
-        const runProfiled = this.testController.createRunProfile(
-            'test config: test data',
-            TestRunProfileKind.Run,
-            this.runTests.bind(this),
-            false,
-            RunTestTag,
-        );
+        // const runProfilec = this.testController.createRunProfile(
+        //     'test config: test data',
+        //     TestRunProfileKind.Debug,
+        //     this.runTests.bind(this),
+        //     true,
+        //     DebugTestTag,
+        // );
+        // const runProfiled = this.testController.createRunProfile(
+        //     'test config: test data',
+        //     TestRunProfileKind.Run,
+        //     this.runTests.bind(this),
+        //     false,
+        //     RunTestTag,
+        // );
         // const runProfileList = [runProfileA, runProfileb, runProfilec, runProfiled];
         // for (const runProfile of runProfileList) {
         //     runProfile.configureHandler = async () => {
@@ -189,8 +194,6 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
             // CC: create specific run profiles
             runProfileA,
             runProfileb,
-            runProfilec,
-            runProfiled,
         );
         this.testController.resolveHandler = this.resolveChildren.bind(this);
         this.testController.refreshHandler = (token: CancellationToken) => {
@@ -576,6 +579,7 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
                     traceVerbose(`Testing: Trigger refresh after saving ${doc.uri.fsPath}`);
                     this.sendTriggerTelemetry('watching');
                     this.refreshData.trigger(doc.uri, false);
+                    this.refreshTestConfigs(workspace.uri, { forceRefresh: true });
                 }
             }),
         );
@@ -621,5 +625,72 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
             });
             this.triggerTypes.push(trigger);
         }
+    }
+
+    public refreshTestConfigs(uri?: Resource, options?: TestRefreshOptions): Promise<void> {
+        if (options?.forceRefresh) {
+            if (uri === undefined) {
+                traceVerbose('uri undefined, refresh test configs');
+            }
+
+            traceVerbose('Testing: refresh CONFIGS');
+            // return this.refreshTestDataInternal(uri);
+            // this.testController.createRunProfile;
+        }
+        // get current test configs from this.testRunProfiles
+        const currProfiles: TestRunProfile[] = this.testRunProfiles;
+        console.log('currProfiles', currProfiles);
+
+        // get test configs from settings.json
+        const settings = this.configSettings.getSettings(uri);
+        const { configs } = settings.testing;
+        console.log('testConfigs', configs);
+
+        const settingsConfigsIds: string[] = [];
+        for (const config of configs) {
+            settingsConfigsIds.push(config.name);
+        }
+        const currProfilesIds: string[] = [];
+        for (const currProfile of currProfiles) {
+            currProfilesIds.push(currProfile.label);
+        }
+
+        // Compare the arrays and create new run profiles for missing configs
+        const newProfiles: TestRunProfile[] = [];
+        for (const config of configs) {
+            if (!currProfilesIds.includes(config.name)) {
+                const newProfile: TestRunProfile = this.testController.createRunProfile(
+                    config.name,
+                    TestRunProfileKind.Run,
+                    this.runTests.bind(this),
+                    false,
+                    RunTestTag,
+                );
+                newProfiles.push(newProfile);
+            }
+        }
+
+        // Dispose of profiles that are no longer in settings.json
+        const profilesToRemove: TestRunProfile[] = [];
+        for (const currProfile of currProfiles) {
+            if (!settingsConfigsIds.includes(currProfile.label)) {
+                profilesToRemove.push(currProfile);
+            }
+        }
+        for (const profileToRemove of profilesToRemove) {
+            profileToRemove.dispose();
+        }
+
+        // Add new profiles to the profile list
+        currProfiles.push(...newProfiles);
+
+        // Update the controller with the updated profile list
+        this.testRunProfiles = currProfiles;
+
+        // dispose of test configs that are no longer in settings.json
+        // create new test configs that are in settings.json but not in this.testRunProfiles
+
+        // this.refreshData.trigger(uri, false);
+        return Promise.resolve();
     }
 }

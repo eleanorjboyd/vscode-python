@@ -52,6 +52,7 @@ export interface ITestController {
     onRefreshingCompleted: Event<void>;
     onRefreshingStarted: Event<void>;
     onRunWithoutConfiguration: Event<WorkspaceFolder[]>;
+    refreshTestConfigs(resource?: Uri, options?: TestRefreshOptions): Promise<void>;
 }
 
 export interface ITestRun {

@@ -180,6 +180,7 @@ export interface IPythonSettings {
     readonly defaultInterpreterPath: string;
     readonly tensorBoard: ITensorBoardSettings | undefined;
     readonly REPL: IREPLSettings;
+    readonly configs: TestConfig[];
     register(): void;
 }
 
@@ -236,13 +237,6 @@ export interface IConfigurationService {
         resource?: Uri,
         configTarget?: ConfigurationTarget,
     ): Promise<void>;
-}
-
-export interface TestConfig {
-    name: string;
-    type: string[];
-    args: string[];
-    framework: 'pytest';
 }
 /**
  * Carries various tool execution path settings. For eg. pipenvPath, condaPath, pytestPath etc. These can be
