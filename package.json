@@ -636,10 +636,19 @@
                     "type": "boolean"
                 },
                 "python.testing.pytestArgs": {
-                    "default": [],
+                    "default": {},
                     "description": "%python.testing.pytestArgs.description%",
                     "items": {
                         "type": "string"
+                    },
+                    "scope": "resource",
+                    "type": "object"
+                },
+                "python.configs": {
+                    "default": [],
+                    "description": "%python.configs.description%",
+                    "items": {
+                        "type": "object"
                     },
                     "scope": "resource",
                     "type": "array"

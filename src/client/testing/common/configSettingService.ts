@@ -1,7 +1,7 @@
 import { inject, injectable } from 'inversify';
 import { Uri, WorkspaceConfiguration } from 'vscode';
 import { IWorkspaceService } from '../../common/application/types';
-import { Product } from '../../common/types';
+import { Product, TestConfig } from '../../common/types';
 import { IServiceContainer } from '../../ioc/types';
 import { ITestConfigSettingsService, UnitTestProduct } from './types';
 
@@ -13,10 +13,23 @@ export class TestConfigSettingsService implements ITestConfigSettingsService {
         this.workspaceService = serviceContainer.get<IWorkspaceService>(IWorkspaceService);
     }
 
-    public async updateTestArgs(testDirectory: string | Uri, product: UnitTestProduct, args: string[]): Promise<void> {
+    public async updateTestArgs(
+        testDirectory: string | Uri,
+        product: UnitTestProduct,
+        args: string[] | TestConfig,
+    ): Promise<void> {
+        // get the general config one
+        const settingConfig = 'configs';
+        let argArray: string[] | TestConfig[] = [];
+        if (Array.isArray(args)) {
+            argArray = args;
+        } else {
+            argArray = [args];
+        }
         // EJFB: picks the setting from setting.json and then updates it with the correct args
         const setting = this.getTestArgSetting(product);
-        return this.updateSetting(testDirectory, setting, args);
+        console.log('setting', setting);
+        return this.updateSetting(testDirectory, settingConfig, argArray);
     }
 
     public async enable(testDirectory: string | Uri, product: UnitTestProduct): Promise<void> {
