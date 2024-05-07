@@ -109,7 +109,7 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
         };
         const execService = await executionFactory?.createActivatedEnvironment(creationOptions);
         // delete UUID following entire discovery finishing.
-        const execArgs = ['-m', 'pytest', '-p', 'vscode_pytest', '--collect-only'].concat(mapToArgs(pytestArgsMap));
+        const execArgs = ['-m', 'pytest', '-p', 'vscode_pytest', '--collect-only'].concat(pytestArgs);
         traceVerbose(`Running pytest discovery with command: ${execArgs.join(' ')} for workspace ${uri.fsPath}.`);
 
         const deferredTillExecClose: Deferred<void> = createTestingDeferred();
