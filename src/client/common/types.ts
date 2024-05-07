@@ -238,6 +238,12 @@ export interface IConfigurationService {
     ): Promise<void>;
 }
 
+export interface TestConfig {
+    name: string;
+    type: string[];
+    args: string[];
+    framework: 'pytest';
+}
 /**
  * Carries various tool execution path settings. For eg. pipenvPath, condaPath, pytestPath etc. These can be
  * potentially used in discovery, autoselection, activation, installers, execution etc. And so should be a

@@ -1,5 +1,5 @@
 import { CancellationToken, Disposable, OutputChannel, Uri } from 'vscode';
-import { Product } from '../../common/types';
+import { Product, TestConfig } from '../../common/types';
 import { TestSettingsPropertyNames } from '../configuration/types';
 import { TestProvider } from '../types';
 
@@ -70,7 +70,7 @@ export interface ITestConfigurationService {
 
 export const ITestConfigSettingsService = Symbol('ITestConfigSettingsService');
 export interface ITestConfigSettingsService {
-    updateTestArgs(testDirectory: string | Uri, product: UnitTestProduct, args: string[]): Promise<void>;
+    updateTestArgs(testDirectory: string | Uri, product: UnitTestProduct, args: TestConfig | string[]): Promise<void>;
     enable(testDirectory: string | Uri, product: UnitTestProduct): Promise<void>;
     disable(testDirectory: string | Uri, product: UnitTestProduct): Promise<void>;
     getTestEnablingSetting(product: UnitTestProduct): string;
