@@ -94,6 +94,10 @@ export class UnitTestConfigurationService implements ITestConfigurationService {
         await this._promptToEnableAndConfigureTestFramework(wkspace, undefined, false, 'commandpalette');
     }
 
+    public async setupQuickRun(wkspace: Uri): Promise<void> {
+        await this._setupQuickRun(wkspace);
+    }
+
     private _enableTest(wkspace: Uri, configMgr: ITestConfigurationManager) {
         const pythonConfig = this.workspaceService.getConfiguration('python', wkspace);
         if (pythonConfig.get<boolean>('testing.promptToConfigure')) {
@@ -116,6 +120,7 @@ export class UnitTestConfigurationService implements ITestConfigurationService {
             failed: false,
         };
         try {
+            // ask user to select a test framework
             const selectedTestRunner = await this.selectTestRunner(messageToDisplay);
             if (typeof selectedTestRunner !== 'number') {
                 throw NONE_SELECTED;
@@ -133,6 +138,7 @@ export class UnitTestConfigurationService implements ITestConfigurationService {
                 // Configure everything before enabling.
                 // Cuz we don't want the test engine (in main.ts file - tests get discovered when config changes are detected)
                 // to start discovering tests when tests haven't been configured properly.
+                // EJFB where config is called
                 await configMgr
                     .configure(wkspace)
                     .then(() => this._enableTest(wkspace, configMgr))
@@ -147,6 +153,25 @@ export class UnitTestConfigurationService implements ITestConfigurationService {
             }
         } finally {
             sendTelemetryEvent(EventName.UNITTEST_CONFIGURING, undefined, telemetryProps);
+        }
+    }
+
+    private async _setupQuickRun(wkspace: Uri): Promise<void> {
+        console.log('Setting up quick run');
+        const factory = this.serviceContainer.get<ITestConfigurationManagerFactory>(ITestConfigurationManagerFactory);
+        const delayed = new BufferedTestConfigSettingsService();
+        const configMgr = factory.create(wkspace, Product.pytest, delayed);
+        await configMgr.enable();
+        await configMgr
+            .enable()
+            .then(() => this._enableTest(wkspace, configMgr))
+            .catch((reason) => this._enableTest(wkspace, configMgr).then(() => Promise.reject(reason)));
+
+        const cfg = this.serviceContainer.get<ITestConfigSettingsService>(ITestConfigSettingsService);
+        try {
+            await delayed.apply(cfg);
+        } catch (exc) {
+            traceError('Python Extension: applying unit test config updates', exc);
         }
     }
 }

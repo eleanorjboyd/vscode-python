@@ -134,7 +134,7 @@ export class UnitTestManagementService implements IExtensionActivationService {
     }
 
     @captureTelemetry(EventName.UNITTEST_CONFIGURE, undefined, false)
-    private async configureTests(resource?: Uri) {
+    private async configureTests(quickConfig: boolean, resource?: Uri) {
         let wkspace: Uri | undefined;
         if (resource) {
             const wkspaceFolder = this.workspaceService.getWorkspaceFolder(resource);
@@ -153,9 +153,12 @@ export class UnitTestManagementService implements IExtensionActivationService {
             return;
         }
         const configurationService = this.serviceContainer.get<ITestConfigurationService>(ITestConfigurationService);
-        await configurationService.promptToEnableAndConfigureTestFramework(wkspace!);
+        if (quickConfig) {
+            await configurationService.setupQuickRun(wkspace!);
+        } else {
+            await configurationService.promptToEnableAndConfigureTestFramework(wkspace!);
+        }
     }
-
     private registerCommands(): void {
         const commandManager = this.serviceContainer.get<ICommandManager>(ICommandManager);
 
@@ -165,7 +168,19 @@ export class UnitTestManagementService implements IExtensionActivationService {
                 (_, _cmdSource: constants.CommandSource = constants.CommandSource.commandPalette, resource?: Uri) => {
                     // Ignore the exceptions returned.
                     // This command will be invoked from other places of the extension.
-                    this.configureTests(resource).ignoreErrors();
+                    // EJFB: this is what is called when that button is pressed
+                    this.configureTests(false, resource).ignoreErrors();
+                    traceVerbose('Testing: Trigger refresh after config change');
+                    this.testController?.refreshTestData(resource, { forceRefresh: true });
+                },
+            ),
+            commandManager.registerCommand(
+                constants.Commands.Test_Quick_Configure,
+                (_, _cmdSource: constants.CommandSource = constants.CommandSource.commandPalette, resource?: Uri) => {
+                    // Ignore the exceptions returned.
+                    // This command will be invoked from other places of the extension.
+                    // EJFB: true to set it to quick config
+                    this.configureTests(true, resource).ignoreErrors();
                     traceVerbose('Testing: Trigger refresh after config change');
                     this.testController?.refreshTestData(resource, { forceRefresh: true });
                 },

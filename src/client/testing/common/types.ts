@@ -65,6 +65,7 @@ export interface ITestConfigurationService {
     selectTestRunner(placeHolderMessage: string): Promise<UnitTestProduct | undefined>;
     enableTest(wkspace: Uri, product: UnitTestProduct): Promise<void>;
     promptToEnableAndConfigureTestFramework(wkspace: Uri): Promise<void>;
+    setupQuickRun(wkspace: Uri): Promise<void>;
 }
 
 export const ITestConfigSettingsService = Symbol('ITestConfigSettingsService');

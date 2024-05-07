@@ -5,6 +5,7 @@ import { Product } from '../../../common/types';
 import { IServiceContainer } from '../../../ioc/types';
 import { TestConfigurationManager } from '../../common/testConfigurationManager';
 import { ITestConfigSettingsService } from '../../common/types';
+import { traceInfo } from '../../../logging';
 
 export class ConfigurationManager extends TestConfigurationManager {
     constructor(workspace: Uri, serviceContainer: IServiceContainer, cfg?: ITestConfigSettingsService) {
@@ -21,31 +22,41 @@ export class ConfigurationManager extends TestConfigurationManager {
     }
 
     public async configure(wkspace: Uri): Promise<void> {
+        // Here is the function used for configuring pytest.
+        // new flow:
         const args: string[] = [];
         const configFileOptionLabel = 'Use existing config file';
         const options: QuickPickItem[] = [];
-        const configFiles = await this.getConfigFiles(wkspace.fsPath);
-        // If a config file exits, there's nothing to be configured.
-        if (configFiles.length > 0 && configFiles.length !== 1 && configFiles[0] !== 'setup.cfg') {
-            return;
-        }
 
-        if (configFiles.length === 1 && configFiles[0] === 'setup.cfg') {
-            options.push({
-                label: configFileOptionLabel,
-                description: 'setup.cfg',
-            });
-        }
+        // optional: name of new config
+        const configName = await this.selectConfigName();
+        console.log(configName);
+        // config type (discovery, run, debug)
+        const configTypeList: string[] = await this.selectConfigType();
+        console.log(configTypeList);
+        // test directory
         const subDirs = await this.getTestDirs(wkspace.fsPath);
         const testDir = await this.selectTestDir(wkspace.fsPath, subDirs, options);
         if (typeof testDir === 'string' && testDir !== configFileOptionLabel) {
             args.push(testDir);
         }
+        // optional? testing args
+        // optional: env file, config file, environment variables
+
         const installed = await this.installer.isInstalled(Product.pytest);
         if (!installed) {
             await this.installer.install(Product.pytest);
         }
         await this.testConfigSettingsService.updateTestArgs(wkspace.fsPath, Product.pytest, args);
+
+        // print out the traceInfo the entire new configuration
+        const config = {
+            name: configName,
+            type: configTypeList,
+            args: [],
+            framework: 'pytest',
+        };
+        traceInfo('THE UPDATED CONFIG IS AS FOLLOWS \n \n:', config);
     }
 
     private async getConfigFiles(rootDir: string): Promise<string[]> {

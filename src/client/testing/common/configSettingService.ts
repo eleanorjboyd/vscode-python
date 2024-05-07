@@ -14,6 +14,7 @@ export class TestConfigSettingsService implements ITestConfigSettingsService {
     }
 
     public async updateTestArgs(testDirectory: string | Uri, product: UnitTestProduct, args: string[]): Promise<void> {
+        // EJFB: picks the setting from setting.json and then updates it with the correct args
         const setting = this.getTestArgSetting(product);
         return this.updateSetting(testDirectory, setting, args);
     }
@@ -53,6 +54,7 @@ export class TestConfigSettingsService implements ITestConfigSettingsService {
     }
 
     private async updateSetting(testDirectory: string | Uri, setting: string, value: unknown) {
+        // EJFB: this is called multiple times it seems
         let pythonConfig: WorkspaceConfiguration;
         const resource = typeof testDirectory === 'string' ? Uri.file(testDirectory) : testDirectory;
         const hasWorkspaceFolders = (this.workspaceService.workspaceFolders?.length || 0) > 0;
