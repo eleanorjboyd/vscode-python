@@ -1,6 +1,6 @@
 import { CancellationToken, Disposable, OutputChannel, Uri } from 'vscode';
-import { Product, TestConfig } from '../../common/types';
-import { TestSettingsPropertyNames } from '../configuration/types';
+import { Product } from '../../common/types';
+import { TestConfig, TestSettingsPropertyNames } from '../configuration/types';
 import { TestProvider } from '../types';
 
 export type UnitTestProduct = Product.pytest | Product.unittest;

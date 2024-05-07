@@ -617,6 +617,15 @@
                     "scope": "resource",
                     "type": "boolean"
                 },
+                "python.testing.configs": {
+                    "default": [],
+                    "description": "%python.testing.autoTestDiscoverOnSaveEnabled.description%",
+                    "scope": "resource",
+                    "items": {
+                        "type": "object"
+                    },
+                    "type": "array"
+                },
                 "python.testing.cwd": {
                     "default": null,
                     "description": "%python.testing.cwd.description%",

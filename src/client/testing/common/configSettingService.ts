@@ -19,7 +19,7 @@ export class TestConfigSettingsService implements ITestConfigSettingsService {
         args: string[] | TestConfig,
     ): Promise<void> {
         // get the general config one
-        const settingConfig = 'configs';
+        const settingConfig = 'testing.configs';
         let argArray: string[] | TestConfig[] = [];
         if (Array.isArray(args)) {
             argArray = args;

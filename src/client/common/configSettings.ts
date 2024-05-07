@@ -33,6 +33,7 @@ import {
     ITensorBoardSettings,
     ITerminalSettings,
     Resource,
+    TestConfig,
 } from './types';
 import { debounceSync } from './utils/decorators';
 import { SystemVariables } from './variables/systemVariables';
@@ -116,6 +117,8 @@ export class PythonSettings implements IPythonSettings {
     public globalModuleInstallation = false;
 
     public REPL!: IREPLSettings;
+
+    public configs: TestConfig[] = [];
 
     public experiments!: IExperiments;
 

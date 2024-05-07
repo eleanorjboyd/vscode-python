@@ -1,6 +1,12 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+export interface TestConfig {
+    name: string;
+    type: string[];
+    args: string[];
+    framework: 'pytest';
+}
 export interface ITestingSettings {
     readonly promptToConfigure: boolean;
     readonly debugPort: number;
@@ -11,6 +17,8 @@ export interface ITestingSettings {
     unittestArgs: string[];
     cwd?: string;
     readonly autoTestDiscoverOnSaveEnabled: boolean;
+
+    configs: TestConfig[];
 }
 
 export type TestSettingsPropertyNames = {
