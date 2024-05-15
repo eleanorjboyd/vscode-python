@@ -16,6 +16,7 @@ import { ITestDebugLauncher, TestDiscoveryOptions } from '../../common/types';
 import { IPythonExecutionFactory } from '../../../common/process/types';
 import { EnvironmentVariables } from '../../../common/variables/types';
 import { Deferred } from '../../../common/utils/async';
+import { TestConfig } from '../../configuration/types';
 
 export type TestRunInstanceOptions = TestRunOptions & {
     exclude?: readonly TestItem[];
@@ -199,6 +200,7 @@ export interface ITestResultResolver {
     resolveDiscovery(
         payload: DiscoveredTestPayload | EOTTestPayload,
         deferredTillEOT: Deferred<void>,
+        testConfig?: TestConfig,
         token?: CancellationToken,
     ): void;
     resolveExecution(
@@ -212,7 +214,11 @@ export interface ITestResultResolver {
 export interface ITestDiscoveryAdapter {
     // ** first line old method signature, second line new method signature
     discoverTests(uri: Uri): Promise<DiscoveredTestPayload>;
-    discoverTests(uri: Uri, executionFactory: IPythonExecutionFactory): Promise<DiscoveredTestPayload>;
+    discoverTests(
+        uri: Uri,
+        executionFactory: IPythonExecutionFactory,
+        testConfig?: TestConfig,
+    ): Promise<DiscoveredTestPayload>;
 }
 
 // interface for execution/runner adapter

@@ -356,7 +356,8 @@ export function populateTestTree(
 ): void {
     // If testRoot is undefined, use the info of the root item of testTreeData to create a test item, and append it to the test controller.
     if (!testRoot) {
-        testRoot = testController.createTestItem(testTreeData.path, testTreeData.name, Uri.file(testTreeData.path));
+        const newName: string = testTreeData.name + Math.random();
+        testRoot = testController.createTestItem(newName, newName, Uri.file(testTreeData.path));
 
         testRoot.canResolveChildren = true;
         testRoot.tags = [RunTestTag, DebugTestTag];

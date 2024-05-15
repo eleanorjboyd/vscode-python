@@ -21,7 +21,7 @@ import {
 import { LanguageServerType } from '../activation/types';
 import type { InstallOptions, InterpreterUri, ModuleInstallFlags } from './installer/types';
 import { EnvironmentVariables } from './variables/types';
-import { ITestingSettings } from '../testing/configuration/types';
+import { ITestingSettings, TestConfig } from '../testing/configuration/types';
 
 export interface IDisposable {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -180,6 +180,8 @@ export interface IPythonSettings {
     readonly defaultInterpreterPath: string;
     readonly tensorBoard: ITensorBoardSettings | undefined;
     readonly REPL: IREPLSettings;
+
+    readonly configs: TestConfig[];
     register(): void;
 }
 

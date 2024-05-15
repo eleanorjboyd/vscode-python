@@ -16,21 +16,20 @@ export class TestConfigSettingsService implements ITestConfigSettingsService {
 
     public async updateTestArgs(
         testDirectory: string | Uri,
-        product: UnitTestProduct,
+        _product: UnitTestProduct,
         args: string[] | TestConfig,
     ): Promise<void> {
         // get the general config one
-        const settingConfig = 'testing.configs';
-        let argArray: string[] | TestConfig[] = [];
-        if (Array.isArray(args)) {
-            argArray = args;
+        const settingName = 'configs';
+
+        // Get the current settings, add if exists
+        let configSettingList = this.workspaceService.getConfiguration('python').get<Array<unknown>>(settingName);
+        if (configSettingList && configSettingList.length > 0) {
+            configSettingList.push(args);
         } else {
-            argArray = [args];
+            configSettingList = [args];
         }
-        // EJFB: picks the setting from setting.json and then updates it with the correct args
-        const setting = this.getTestArgSetting(product);
-        console.log('setting', setting);
-        return this.updateSetting(testDirectory, settingConfig, argArray);
+        return this.updateSetting(testDirectory, settingName, configSettingList);
     }
 
     public async enable(testDirectory: string | Uri, product: UnitTestProduct): Promise<void> {
@@ -55,17 +54,17 @@ export class TestConfigSettingsService implements ITestConfigSettingsService {
         }
     }
 
-    // eslint-disable-next-line class-methods-use-this
-    private getTestArgSetting(product: UnitTestProduct): string {
-        switch (product) {
-            case Product.unittest:
-                return 'testing.unittestArgs';
-            case Product.pytest:
-                return 'testing.pytestArgs';
-            default:
-                throw new Error('Invalid Test Product');
-        }
-    }
+    // // eslint-disable-next-line class-methods-use-this
+    // private getTestArgSetting(product: UnitTestProduct): string {
+    //     switch (product) {
+    //         case Product.unittest:
+    //             return 'testing.unittestArgs';
+    //         case Product.pytest:
+    //             return 'testing.pytestArgs';
+    //         default:
+    //             throw new Error('Invalid Test Product');
+    //     }
+    // }
 
     private async updateSetting(testDirectory: string | Uri, setting: string, value: unknown) {
         // EJFB: this is called multiple times it seems

@@ -103,9 +103,9 @@ export abstract class TestConfigurationManager implements ITestConfigurationMana
             canPickMany: true, // Enable multi-select
         };
         const items: QuickPickItem[] = [
-            { label: 'run', description: 'Run configuration' },
-            { label: 'debug', description: 'Debug configuration' },
-            { label: 'discovery', description: 'Discovery configuration' },
+            { label: 'testRun', description: 'Run configuration' },
+            { label: 'testDebug', description: 'Debug configuration' },
+            { label: 'testDiscovery', description: 'Discovery configuration' },
         ];
         return this.showQuickPickMultiSelect(items, options);
     }

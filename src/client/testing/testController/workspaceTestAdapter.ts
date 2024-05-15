@@ -14,6 +14,7 @@ import { ITestDiscoveryAdapter, ITestExecutionAdapter, ITestResultResolver } fro
 import { IPythonExecutionFactory } from '../../common/process/types';
 import { ITestDebugLauncher } from '../common/types';
 import { buildErrorNodeOptions } from './common/utils';
+import { TestConfig } from '../configuration/types';
 
 /**
  * This class exposes a test-provider-agnostic way of discovering tests.
@@ -115,6 +116,7 @@ export class WorkspaceTestAdapter {
         testController: TestController,
         token?: CancellationToken,
         executionFactory?: IPythonExecutionFactory,
+        testConfig?: TestConfig,
     ): Promise<void> {
         sendTelemetryEvent(EventName.UNITTEST_DISCOVERING, undefined, { tool: this.testProvider });
 
@@ -129,14 +131,17 @@ export class WorkspaceTestAdapter {
 
         try {
             // ** execution factory only defined for new rewrite way
-            if (executionFactory !== undefined) {
-                await this.discoveryAdapter.discoverTests(this.workspaceUri, executionFactory);
+            if (executionFactory !== undefined && testConfig !== undefined) {
+                await this.discoveryAdapter.discoverTests(this.workspaceUri, executionFactory, testConfig);
             } else {
                 await this.discoveryAdapter.discoverTests(this.workspaceUri);
             }
             deferred.resolve();
         } catch (ex) {
-            sendTelemetryEvent(EventName.UNITTEST_DISCOVERY_DONE, undefined, { tool: this.testProvider, failed: true });
+            sendTelemetryEvent(EventName.UNITTEST_DISCOVERY_DONE, undefined, {
+                tool: this.testProvider,
+                failed: true,
+            });
 
             let cancel = token?.isCancellationRequested
                 ? Testing.cancelUnittestDiscovery
@@ -160,7 +165,10 @@ export class WorkspaceTestAdapter {
             this.discovering = undefined;
         }
 
-        sendTelemetryEvent(EventName.UNITTEST_DISCOVERY_DONE, undefined, { tool: this.testProvider, failed: false });
+        sendTelemetryEvent(EventName.UNITTEST_DISCOVERY_DONE, undefined, {
+            tool: this.testProvider,
+            failed: false,
+        });
         return Promise.resolve();
     }
 }

@@ -31,7 +31,7 @@ import { IEventNamePropertyMapping, sendTelemetryEvent } from '../../telemetry';
 import { EventName } from '../../telemetry/constants';
 import { PYTEST_PROVIDER, UNITTEST_PROVIDER } from '../common/constants';
 import { TestProvider } from '../types';
-import { getNodeByUri, RunTestTag } from './common/testItemUtilities';
+import { getNodeByUri, RunTestTag, DebugTestTag } from './common/testItemUtilities';
 import { pythonTestAdapterRewriteEnabled } from './common/utils';
 import {
     ITestController,
@@ -123,20 +123,20 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
         this.disposables.push(delayTrigger);
         this.refreshData = delayTrigger;
 
-        // const runProfileA = this.testController.createRunProfile(
-        //     'simple test config',
-        //     TestRunProfileKind.Run,
-        //     this.runTests.bind(this),
-        //     true,
-        //     RunTestTag,
-        // );
-        // const runProfileb = this.testController.createRunProfile(
-        //     'simple test config',
-        //     TestRunProfileKind.Debug,
-        //     this.runTests.bind(this),
-        //     false,
-        //     DebugTestTag,
-        // );
+        const runProfileA = this.testController.createRunProfile(
+            'simple test config',
+            TestRunProfileKind.Run,
+            this.runTests.bind(this),
+            true,
+            RunTestTag,
+        );
+        const runProfileb = this.testController.createRunProfile(
+            'simple test config',
+            TestRunProfileKind.Debug,
+            this.runTests.bind(this),
+            false,
+            DebugTestTag,
+        );
         // const runProfilec = this.testController.createRunProfile(
         //     'test config: test data',
         //     TestRunProfileKind.Debug,
@@ -189,11 +189,11 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
         //     //     editor.selection = new Selection(position, position);
         //     // });
         // }
-        // this.disposables.push(
-        //     // CC: create specific run profiles
-        //     runProfileA,
-        //     runProfileb,
-        // );
+        this.disposables.push(
+            // CC: create specific run profiles
+            runProfileA,
+            runProfileb,
+        );
         this.testController.resolveHandler = this.resolveChildren.bind(this);
         this.testController.refreshHandler = (token: CancellationToken) => {
             this.disposables.push(
@@ -323,12 +323,36 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
                     traceInfo(`Running discovery for pytest using the new test adapter.`);
                     if (workspace && workspace.uri) {
                         const testAdapter = this.testAdapters.get(workspace.uri);
+
                         if (testAdapter) {
-                            await testAdapter.discoverTests(
-                                this.testController,
-                                this.refreshCancellation.token,
-                                this.pythonExecFactory,
-                            );
+                            /// TODO: get all discovery configs here
+                            // run each discovery config which exists (for the given framework type?)
+                            const pySettings = this.configSettings.getSettings(workspace.uri);
+                            const { configs } = pySettings;
+                            let hasDiscoveryConfig = false;
+                            for (const config of configs) {
+                                if (
+                                    config.type === configType.test &&
+                                    config.subtype?.includes(configSubType.testDiscovery)
+                                ) {
+                                    hasDiscoveryConfig = true;
+                                    console.log('running discovery config:', config);
+                                    await testAdapter.discoverTests(
+                                        this.testController,
+                                        this.refreshCancellation.token,
+                                        this.pythonExecFactory,
+                                        config,
+                                    );
+                                }
+                            }
+                            if (hasDiscoveryConfig === false) {
+                                // no discovery config found, run default discovery
+                                await testAdapter.discoverTests(
+                                    this.testController,
+                                    this.refreshCancellation.token,
+                                    this.pythonExecFactory,
+                                );
+                            }
                         } else {
                             traceError('Unable to find test adapter for workspace.');
                         }
@@ -642,6 +666,7 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
     public refreshTestConfigs(uri?: Resource, options?: TestRefreshOptions): Promise<void> {
         // review if this is necessary
         console.log('was it a forced refresh?', options?.forceRefresh);
+        traceVerbose('RefreshTestConfig, uri:', uri);
 
         if (uri === undefined) {
             // if not uri, refresh all test configs
@@ -656,7 +681,7 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
 
         // get test configs from settings.json
         const settings = this.configSettings.getSettings(uri);
-        const { configs } = settings.testing;
+        const { configs } = settings;
 
         // clear all current test configs
         // QUESTION: do test configs hold any "memory?" is it useful keeping them around?
@@ -665,11 +690,13 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
         }
         tempProfileList = [];
 
-        for (const config of configs) {
-            // only add configs that are of `test` type not `terminal` type
-            if (config.type === configType.test) {
-                this.createRunProfilesFromConfig(config, tempProfileList);
-                tempProfileList.push(newProfile);
+        if (configs) {
+            for (const config of configs) {
+                // only add configs that are of `test` type not `terminal` type
+                if (config.type === configType.test) {
+                    // creates profile and adds it to tempProfileList
+                    this.createRunProfilesFromConfig(config, tempProfileList);
+                }
             }
         }
 
@@ -679,33 +706,41 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
     }
 
     public createRunProfilesFromConfig(config: TestConfig, tempProfileList: TestRunProfile[]): void {
-        const profileTypeList: configSubType[] | undefined = config.subtype;
-        if (profileTypeList === undefined || profileTypeList.length === 0) {
+        let profileTypeList: configSubType[] | undefined = config.subtype;
+        if (profileTypeList === undefined) {
             // need to decide how "no subtype" is handled (do we want it undefined? not set?)
             traceVerbose(
                 'Adding all possible profiles since no profile subtype was provided for config: ',
                 config.name,
             );
-        } else {
-            if (profileTypeList.includes(configSubType.testRun)) {
-                // create run profile
-                const profile = this.testController.createRunProfile(
-                    config.name,
-                    TestRunProfileKind.Run,
-                    this.runTests.bind(this),
-                );
-                tempProfileList.push(profile);
-            }
-            if (profileTypeList.includes(configSubType.testDebug)) {
-                // create debug profile
-                const profile = this.testController.createRunProfile(
-                    config.name,
-                    TestRunProfileKind.Debug,
-                    this.runTests.bind(this),
-                );
-                tempProfileList.push(profile);
-            }
-            // no profile made for discovery as they are not handled by the "runProfiles"
+            profileTypeList = [configSubType.testRun, configSubType.testDebug];
+        } else if (profileTypeList.length === 0) {
+            traceVerbose(
+                'Adding all possible profiles since no profile subtype was provided for config: ',
+                config.name,
+            );
+            profileTypeList.push(configSubType.testRun);
+            profileTypeList.push(configSubType.testDebug);
         }
+        // add profile for each subtype if it is in the config
+        if (profileTypeList.includes(configSubType.testRun)) {
+            // create run profile
+            const profile = this.testController.createRunProfile(
+                config.name,
+                TestRunProfileKind.Run,
+                this.runTests.bind(this),
+            );
+            tempProfileList.push(profile);
+        }
+        if (profileTypeList.includes(configSubType.testDebug)) {
+            // create debug profile, add to workspace profile list
+            const profile = this.testController.createRunProfile(
+                config.name,
+                TestRunProfileKind.Debug,
+                this.runTests.bind(this),
+            );
+            tempProfileList.push(profile);
+        }
+        // no profile made for discovery as they are NOT handled by the "runProfiles"
     }
 }

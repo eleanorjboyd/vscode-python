@@ -37,24 +37,20 @@ export class ConfigurationManager extends TestConfigurationManager {
 
         // convert user selected list to the right enum type
         const configSubTypeList: configSubType[] = [];
-        if (configSubTypeListRaw.length === 0) {
-            configSubTypeList.push(...[configSubType.testRun, configSubType.testDebug, configSubType.testDiscovery]);
-        } else {
-            for (const subtype of configSubTypeListRaw) {
-                switch (subtype) {
-                    case 'testRun':
-                        configSubTypeList.push(configSubType.testRun);
-                        break;
-                    case 'testDiscovery':
-                        configSubTypeList.push(configSubType.testDiscovery);
-                        break;
-                    case 'testDebug':
-                        configSubTypeList.push(configSubType.testDebug);
-                        break;
-                    default:
-                        console.log(`Unknown subtype: ${subtype}`);
-                        break;
-                }
+        for (const subtype of configSubTypeListRaw) {
+            switch (subtype) {
+                case 'testRun':
+                    configSubTypeList.push(configSubType.testRun);
+                    break;
+                case 'testDiscovery':
+                    configSubTypeList.push(configSubType.testDiscovery);
+                    break;
+                case 'testDebug':
+                    configSubTypeList.push(configSubType.testDebug);
+                    break;
+                default:
+                    console.log(`Unknown test config subtype: ${subtype}`);
+                    break;
             }
         }
 

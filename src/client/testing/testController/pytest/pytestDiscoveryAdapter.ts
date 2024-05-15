@@ -24,6 +24,7 @@ import {
     hasSymlinkParent,
 } from '../common/utils';
 import { IEnvironmentVariablesProvider } from '../../../common/variables/types';
+import { TestConfig } from '../../configuration/types';
 
 /**
  * Wrapper class for unittest test discovery. This is where we call `runTestCommand`. #this seems incorrectly copied
@@ -36,15 +37,19 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
         private readonly envVarsService?: IEnvironmentVariablesProvider,
     ) {}
 
-    async discoverTests(uri: Uri, executionFactory?: IPythonExecutionFactory): Promise<DiscoveredTestPayload> {
+    async discoverTests(
+        uri: Uri,
+        executionFactory?: IPythonExecutionFactory,
+        testConfig?: TestConfig,
+    ): Promise<DiscoveredTestPayload> {
         const deferredTillEOT: Deferred<void> = createDeferred<void>();
 
         const { name, dispose } = await startDiscoveryNamedPipe((data: DiscoveredTestPayload | EOTTestPayload) => {
-            this.resultResolver?.resolveDiscovery(data, deferredTillEOT);
+            this.resultResolver?.resolveDiscovery(data, deferredTillEOT, testConfig);
         });
 
         try {
-            await this.runPytestDiscovery(uri, name, deferredTillEOT, executionFactory);
+            await this.runPytestDiscovery(uri, name, deferredTillEOT, executionFactory, testConfig);
         } finally {
             await deferredTillEOT.promise;
             traceVerbose('deferredTill EOT resolved');
@@ -60,11 +65,24 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
         discoveryPipeName: string,
         deferredTillEOT: Deferred<void>,
         executionFactory?: IPythonExecutionFactory,
+        testConfig?: TestConfig,
     ): Promise<void> {
+        if (testConfig === undefined) {
+            throw new Error('Test configuration is required for pytest discovery.');
+        }
         const relativePathToPytest = 'python_files';
         const fullPluginPath = path.join(EXTENSION_ROOT_DIR, relativePathToPytest);
         const settings = this.configSettings.getSettings(uri);
-        let { pytestArgs } = settings.testing;
+        // get all configs
+        let pytestArgs = testConfig.args ? testConfig.args : [];
+        // get settings.configs from workspace, it will be an array
+        // check if undefined or empty- if so use default discovery
+        // if not, iterate through array
+        // find the configs which are of type "test" and subtype "testDiscovery"
+        // use the first one found, if none found use default discovery
+        // this might be wrong if we need to run ALL configs for discovery
+        // if so we need to change how to support multiple runs at the same time? or cycle through them here?
+        // this seems a little too confusing for now
         const cwd = settings.testing.cwd && settings.testing.cwd.length > 0 ? settings.testing.cwd : uri.fsPath;
 
         // check for symbolic path
@@ -94,6 +112,10 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
         const pythonPathCommand = [fullPluginPath, ...pythonPathParts].join(path.delimiter);
         mutableEnv.PYTHONPATH = pythonPathCommand;
         mutableEnv.TEST_RUN_PIPE = discoveryPipeName;
+        // add config env vars
+        if (testConfig.env) {
+            Object.assign(mutableEnv, testConfig.env);
+        }
         traceInfo(`All environment variables set for pytest discovery: ${JSON.stringify(mutableEnv)}`);
         const spawnOptions: SpawnOptions = {
             cwd,
@@ -101,6 +123,7 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
             outputChannel: this.outputChannel,
             env: mutableEnv,
         };
+        // what to do with the testConfig.envFile?
 
         // Create the Python environment in which to execute the command.
         const creationOptions: ExecutionFactoryCreateWithEnvironmentOptions = {

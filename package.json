@@ -652,7 +652,7 @@
                     "scope": "resource",
                     "type": "boolean"
                 },
-                "python.testing.configs": {
+                "python.configs": {
                     "default": [],
                     "description": "%python.testing.autoTestDiscoverOnSaveEnabled.description%",
                     "scope": "resource",
@@ -687,15 +687,6 @@
                     },
                     "scope": "resource",
                     "type": "object"
-                },
-                "python.configs": {
-                    "default": [],
-                    "description": "%python.configs.description%",
-                    "items": {
-                        "type": "object"
-                    },
-                    "scope": "resource",
-                    "type": "array"
                 },
                 "python.testing.pytestEnabled": {
                     "default": false,

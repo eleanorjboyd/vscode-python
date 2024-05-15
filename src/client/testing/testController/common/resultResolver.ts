@@ -22,6 +22,7 @@ import { EventName } from '../../../telemetry/constants';
 import { splitLines } from '../../../common/stringUtils';
 import { buildErrorNodeOptions, populateTestTree, splitTestNameWithRegex } from './utils';
 import { Deferred } from '../../../common/utils/async';
+import { TestConfig } from '../../configuration/types';
 
 export class PythonResultResolver implements ITestResultResolver {
     testController: TestController;
@@ -48,6 +49,7 @@ export class PythonResultResolver implements ITestResultResolver {
     public resolveDiscovery(
         payload: DiscoveredTestPayload | EOTTestPayload,
         deferredTillEOT: Deferred<void>,
+        testConfig?: TestConfig,
         token?: CancellationToken,
     ): void {
         if ('eot' in payload && payload.eot === true) {
@@ -59,7 +61,7 @@ export class PythonResultResolver implements ITestResultResolver {
         }
     }
 
-    public _resolveDiscovery(payload: DiscoveredTestPayload, token?: CancellationToken): void {
+    public _resolveDiscovery(payload: DiscoveredTestPayload, testConfig: TestConfig, token?: CancellationToken): void {
         const workspacePath = this.workspaceUri.fsPath;
         const rawTestData = payload as DiscoveredTestPayload;
         // Check if there were any errors in the discovery process.

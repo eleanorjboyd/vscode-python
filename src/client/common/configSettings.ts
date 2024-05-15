@@ -399,6 +399,9 @@ export class PythonSettings implements IPythonSettings {
         if (this.tensorBoard.logDirectory) {
             this.tensorBoard.logDirectory = getAbsolutePath(this.tensorBoard.logDirectory, workspaceRoot);
         }
+
+        // updating the instance of the setting
+        this.configs = systemVariables.resolveAny(pythonSettings.get<TestConfig[]>('configs'))!;
     }
 
     // eslint-disable-next-line class-methods-use-this

@@ -25,6 +25,8 @@ export interface TestConfig {
     subtype?: configSubType[]; // this subtype refers to if it is `run`, `debug`, or `discovery` type
     args: string[];
     framework: frameworkType;
+    env?: { [key: string]: string };
+    envFile?: string; // TODO: should this be a string or path type?
 }
 export interface ITestingSettings {
     readonly promptToConfigure: boolean;
