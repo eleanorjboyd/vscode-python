@@ -32,7 +32,7 @@ import { EventName } from '../../telemetry/constants';
 import { PYTEST_PROVIDER, UNITTEST_PROVIDER } from '../common/constants';
 import { TestProvider } from '../types';
 import { getNodeByUri, RunTestTag, DebugTestTag } from './common/testItemUtilities';
-import { pythonTestAdapterRewriteEnabled } from './common/utils';
+import { createDefaultTestConfig, pythonTestAdapterRewriteEnabled } from './common/utils';
 import {
     ITestController,
     ITestDiscoveryAdapter,
@@ -51,7 +51,7 @@ import { IServiceContainer } from '../../ioc/types';
 import { PythonResultResolver } from './common/resultResolver';
 import { onDidSaveTextDocument } from '../../common/vscodeApis/workspaceApis';
 import { IEnvironmentVariablesProvider } from '../../common/variables/types';
-import { TestConfig, configSubType, configType } from '../configuration/types';
+import { TestConfig, configSubType, configType, frameworkType } from '../configuration/types';
 
 // Types gymnastics to make sure that sendTriggerTelemetry only accepts the correct types.
 type EventPropertyType = IEventNamePropertyMapping[EventName.UNITTEST_DISCOVERY_TRIGGER];
@@ -504,15 +504,53 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
                                 const testAdapter =
                                     this.testAdapters.get(workspace.uri) ||
                                     (this.testAdapters.values().next().value as WorkspaceTestAdapter);
-                                return testAdapter.executeTests(
-                                    this.testController,
-                                    runInstance,
-                                    testItems,
-                                    token,
-                                    request.profile?.kind === TestRunProfileKind.Debug,
-                                    this.pythonExecFactory,
-                                    this.debugLauncher,
-                                );
+
+                                // do I need to check test adapter??
+                                const pySettings = this.configSettings.getSettings(workspace.uri);
+                                const { configs } = pySettings;
+                                let hasRunConfig = false;
+                                // will need to check for request.profile?.kind to see if it is debug or run and which config to use
+                                // select, framework, config, rewrite, debug type, subtype, name and kind
+                                // do I need both  TestRunProfileKind.Debug and configSubtype.testDebug??
+                                for (const config of configs) {
+                                    if (
+                                        config.type === configType.test &&
+                                        config.subtype?.includes(configSubType.testRun) &&
+                                        request.profile?.label === config.name // is this how I want to do this?? do they need IDs?
+                                    ) {
+                                        hasRunConfig = true;
+                                        console.log('running discovery config:', config);
+                                        return testAdapter.executeTests(
+                                            this.testController,
+                                            runInstance,
+                                            testItems,
+                                            config,
+                                            token,
+                                            request.profile?.kind === TestRunProfileKind.Debug,
+                                            this.pythonExecFactory,
+                                            this.debugLauncher,
+                                        );
+                                    }
+                                }
+                                if (hasRunConfig === false) {
+                                    // no run config found, run default tests
+                                    // get default config (or create one?)
+                                    const config = createDefaultTestConfig(
+                                        'default',
+                                        [configSubType.testRun],
+                                        frameworkType.pytest,
+                                    );
+                                    return testAdapter.executeTests(
+                                        this.testController,
+                                        runInstance,
+                                        testItems,
+                                        config,
+                                        token,
+                                        request.profile?.kind === TestRunProfileKind.Debug,
+                                        this.pythonExecFactory,
+                                        this.debugLauncher,
+                                    );
+                                }
                             }
                             return this.pytest.runTests(
                                 {
@@ -532,6 +570,9 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
                             });
                             // ** experiment to roll out NEW test discovery mechanism
                             if (pythonTestAdapterRewriteEnabled(this.serviceContainer)) {
+                                const pySettings = this.configSettings.getSettings(workspace.uri);
+                                const { configs } = pySettings;
+                                // duplicate for selection
                                 const testAdapter =
                                     this.testAdapters.get(workspace.uri) ||
                                     (this.testAdapters.values().next().value as WorkspaceTestAdapter);
@@ -539,6 +580,7 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
                                     this.testController,
                                     runInstance,
                                     testItems,
+                                    configs[0], // TEMP
                                     token,
                                     request.profile?.kind === TestRunProfileKind.Debug,
                                     this.pythonExecFactory,

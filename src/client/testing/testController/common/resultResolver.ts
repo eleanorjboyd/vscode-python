@@ -56,8 +56,8 @@ export class PythonResultResolver implements ITestResultResolver {
             deferredTillEOT.resolve();
         } else if (!payload) {
             // No test data is available
-        } else {
-            this._resolveDiscovery(payload as DiscoveredTestPayload, token);
+        } else if (testConfig !== undefined) {
+            this._resolveDiscovery(payload as DiscoveredTestPayload, testConfig, token);
         }
     }
 
@@ -79,6 +79,7 @@ export class PythonResultResolver implements ITestResultResolver {
 
             if (errorNode === undefined) {
                 const options = buildErrorNodeOptions(this.workspaceUri, message, this.testProvider);
+                // EJFB todo: probably add which config got the error to specify more?
                 errorNode = createErrorTestItem(this.testController, options);
                 this.testController.items.add(errorNode);
             }
@@ -97,7 +98,7 @@ export class PythonResultResolver implements ITestResultResolver {
 
             // If the test root for this folder exists: Workspace refresh, update its children.
             // Otherwise, it is a freshly discovered workspace, and we need to create a new test root and populate the test tree.
-            populateTestTree(this.testController, rawTestData.tests, undefined, this, token);
+            populateTestTree(this.testController, rawTestData.tests, undefined, this, token, testConfig);
         }
 
         sendTelemetryEvent(EventName.UNITTEST_DISCOVERY_DONE, undefined, {

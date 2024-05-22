@@ -208,7 +208,7 @@ export interface ITestResultResolver {
         runInstance: TestRun,
         deferredTillEOT: Deferred<void>,
     ): void;
-    _resolveDiscovery(payload: DiscoveredTestPayload, token?: CancellationToken): void;
+    _resolveDiscovery(payload: DiscoveredTestPayload, testConfig: TestConfig, token?: CancellationToken): void;
     _resolveExecution(payload: ExecutionTestPayload, runInstance: TestRun): void;
 }
 export interface ITestDiscoveryAdapter {
@@ -229,6 +229,7 @@ export interface ITestExecutionAdapter {
         uri: Uri,
         testIds: string[],
         debugBool?: boolean,
+        testConfig?: TestConfig,
         runInstance?: TestRun,
         executionFactory?: IPythonExecutionFactory,
         debugLauncher?: ITestDebugLauncher,

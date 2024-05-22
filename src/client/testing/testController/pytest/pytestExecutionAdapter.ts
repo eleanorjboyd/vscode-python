@@ -19,6 +19,7 @@ import { PYTEST_PROVIDER } from '../../common/constants';
 import { EXTENSION_ROOT_DIR } from '../../../common/constants';
 import * as utils from '../common/utils';
 import { IEnvironmentVariablesProvider } from '../../../common/variables/types';
+import { TestConfig } from '../../configuration/types';
 
 export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
     constructor(
@@ -32,6 +33,7 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
         uri: Uri,
         testIds: string[],
         debugBool?: boolean,
+        testConfig?: TestConfig,
         runInstance?: TestRun,
         executionFactory?: IPythonExecutionFactory,
         debugLauncher?: ITestDebugLauncher,
@@ -68,12 +70,16 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
         });
 
         try {
+            if (!testConfig) {
+                throw new Error('Test configuration is required to run tests.');
+            }
             await this.runTestsNew(
                 uri,
                 testIds,
                 name,
                 deferredTillEOT,
                 serverDispose,
+                testConfig,
                 runInstance,
                 debugBool,
                 executionFactory,
@@ -101,6 +107,7 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
         resultNamedPipeName: string,
         deferredTillEOT: Deferred<void>,
         serverDispose: () => void,
+        testConfig: TestConfig,
         runInstance?: TestRun,
         debugBool?: boolean,
         executionFactory?: IPythonExecutionFactory,
@@ -109,7 +116,7 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
         const relativePathToPytest = 'python_files';
         const fullPluginPath = path.join(EXTENSION_ROOT_DIR, relativePathToPytest);
         const settings = this.configSettings.getSettings(uri);
-        const { pytestArgs } = settings.testing;
+        const pytestArgs = testConfig.args;
         const cwd = settings.testing.cwd && settings.testing.cwd.length > 0 ? settings.testing.cwd : uri.fsPath;
         // get and edit env vars
         const mutableEnv = {
@@ -117,6 +124,18 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
         };
         // get python path from mutable env, it contains process.env as well
         const pythonPathParts: string[] = mutableEnv.PYTHONPATH?.split(path.delimiter) ?? [];
+        // add in env vars from test config if they exist
+        if (testConfig.env) {
+            for (const [key, value] of Object.entries(testConfig.env)) {
+                mutableEnv[key] = value;
+            }
+        }
+        // if the user has set PYTHONPATH in their env vars, add it to the python path parts so all paths are concatenated
+        // q- should this be appended at the front or back?
+        if (testConfig.env && testConfig.env.PYTHONPATH) {
+            pythonPathParts.push(testConfig.env.PYTHONPATH);
+        }
+
         const pythonPathCommand = [fullPluginPath, ...pythonPathParts].join(path.delimiter);
         mutableEnv.PYTHONPATH = pythonPathCommand;
         mutableEnv.TEST_RUN_PIPE = resultNamedPipeName;
@@ -146,6 +165,7 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
             const testIdsPipeName = await utils.startTestIdsNamedPipe(testIds);
             mutableEnv.RUN_TEST_IDS_PIPE = testIdsPipeName;
             traceInfo(`All environment variables set for pytest execution: ${JSON.stringify(mutableEnv)}`);
+            traceInfo(`Using test configuration: ${JSON.stringify(testConfig)}`);
 
             const spawnOptions: SpawnOptions = {
                 cwd,

@@ -27,6 +27,7 @@ import {
 import { ITestDebugLauncher, LaunchOptions } from '../../common/types';
 import { UNITTEST_PROVIDER } from '../../common/constants';
 import * as utils from '../common/utils';
+import { TestConfig } from '../../configuration/types';
 
 /**
  * Wrapper Class for unittest test execution. This is where we call `runTestCommand`?
@@ -44,6 +45,7 @@ export class UnittestTestExecutionAdapter implements ITestExecutionAdapter {
         uri: Uri,
         testIds: string[],
         debugBool?: boolean,
+        testConfig?: TestConfig,
         runInstance?: TestRun,
         executionFactory?: IPythonExecutionFactory,
         debugLauncher?: ITestDebugLauncher,
@@ -74,12 +76,16 @@ export class UnittestTestExecutionAdapter implements ITestExecutionAdapter {
             serverDispose();
         });
         try {
+            if (!testConfig) {
+                throw new Error('Test configuration is not defined');
+            }
             await this.runTestsNew(
                 uri,
                 testIds,
                 resultNamedPipeName,
                 deferredTillEOT,
                 serverDispose,
+                testConfig,
                 runInstance,
                 debugBool,
                 executionFactory,
@@ -106,13 +112,14 @@ export class UnittestTestExecutionAdapter implements ITestExecutionAdapter {
         resultNamedPipeName: string,
         deferredTillEOT: Deferred<void>,
         serverDispose: () => void,
+        testConfig: TestConfig,
         runInstance?: TestRun,
         debugBool?: boolean,
         executionFactory?: IPythonExecutionFactory,
         debugLauncher?: ITestDebugLauncher,
     ): Promise<ExecutionTestPayload> {
         const settings = this.configSettings.getSettings(uri);
-        const { unittestArgs } = settings.testing;
+        const unittestArgs = testConfig.args;
         const cwd = settings.testing.cwd && settings.testing.cwd.length > 0 ? settings.testing.cwd : uri.fsPath;
 
         const command = buildExecutionCommand(unittestArgs);
@@ -121,6 +128,17 @@ export class UnittestTestExecutionAdapter implements ITestExecutionAdapter {
             mutableEnv = {} as EnvironmentVariables;
         }
         const pythonPathParts: string[] = mutableEnv.PYTHONPATH?.split(path.delimiter) ?? [];
+        // add in env vars from test config if they exist
+        if (testConfig.env) {
+            for (const [key, value] of Object.entries(testConfig.env)) {
+                mutableEnv[key] = value;
+            }
+        }
+        // if the user has set PYTHONPATH in their env vars, add it to the python path parts so all paths are concatenated
+        // q- should this be appended at the front or back?
+        if (testConfig.env && testConfig.env.PYTHONPATH) {
+            pythonPathParts.push(testConfig.env.PYTHONPATH);
+        }
         const pythonPathCommand = [cwd, ...pythonPathParts].join(path.delimiter);
         mutableEnv.PYTHONPATH = pythonPathCommand;
         mutableEnv.TEST_RUN_PIPE = resultNamedPipeName;
@@ -183,6 +201,7 @@ export class UnittestTestExecutionAdapter implements ITestExecutionAdapter {
             } else {
                 // This means it is running the test
                 traceInfo(`Running unittests for workspace ${cwd} with arguments: ${args}\r\n`);
+                traceInfo(`Using test configuration: ${JSON.stringify(testConfig)}`);
 
                 const deferredTillExecClose = createDeferred<ExecutionResult<string>>();
 
