@@ -90,12 +90,12 @@ export class UnitTestConfigurationService implements ITestConfigurationService {
         return this._enableTest(wkspace, configMgr);
     }
 
-    public async promptToEnableAndConfigureTestFramework(wkspace: Uri): Promise<void> {
-        await this._promptToEnableAndConfigureTestFramework(wkspace, undefined, false, 'commandpalette');
+    public async promptToEnableAndConfigureTestFramework(wkspace: Uri, framework?: UnitTestProduct): Promise<void> {
+        await this._promptToEnableAndConfigureTestFramework(wkspace, undefined, false, 'commandpalette', framework);
     }
 
-    public async setupQuickRun(wkspace: Uri): Promise<void> {
-        await this._setupQuickRun(wkspace);
+    public async setupQuickRun(wkspace: Uri, frameworkEnum: UnitTestProduct): Promise<void> {
+        await this._setupQuickRun(wkspace, frameworkEnum);
     }
 
     private _enableTest(wkspace: Uri, configMgr: ITestConfigurationManager) {
@@ -114,17 +114,24 @@ export class UnitTestConfigurationService implements ITestConfigurationService {
         messageToDisplay = 'Select a test framework/tool to enable',
         enableOnly = false,
         trigger: 'ui' | 'commandpalette' = 'ui',
+        framework?: UnitTestProduct,
     ): Promise<void> {
         const telemetryProps: TestConfiguringTelemetry = {
             trigger,
             failed: false,
         };
         try {
-            // ask user to select a test framework
-            const selectedTestRunner = await this.selectTestRunner(messageToDisplay);
-            if (typeof selectedTestRunner !== 'number') {
-                throw NONE_SELECTED;
+            let selectedTestRunner;
+            if (!framework) {
+                // ask user to select a test framework
+                selectedTestRunner = await this.selectTestRunner(messageToDisplay);
+                if (typeof selectedTestRunner !== 'number') {
+                    throw NONE_SELECTED;
+                }
+            } else {
+                selectedTestRunner = framework;
             }
+
             const helper = this.serviceContainer.get<ITestsHelper>(ITestsHelper);
             telemetryProps.tool = helper.parseProviderName(selectedTestRunner);
             const delayed = new BufferedTestConfigSettingsService();
@@ -156,13 +163,13 @@ export class UnitTestConfigurationService implements ITestConfigurationService {
         }
     }
 
-    private async _setupQuickRun(wkspace: Uri): Promise<void> {
+    private async _setupQuickRun(wkspace: Uri, frameworkEnum: UnitTestProduct): Promise<void> {
         console.log('Setting up quick run');
         const factory = this.serviceContainer.get<ITestConfigurationManagerFactory>(ITestConfigurationManagerFactory);
         const delayed = new BufferedTestConfigSettingsService();
-        const configMgr = factory.create(wkspace, Product.pytest, delayed);
-        // SPOT 1.3: when someone does a quick run setup, do we want that to be created and added to their settings?
-        // what would be options we would want to test
+        // set enablement to frameworkEnum passed to quick run
+        const configMgr = factory.create(wkspace, frameworkEnum, delayed);
+
         await configMgr.enable();
         await configMgr
             .enable()

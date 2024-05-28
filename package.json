@@ -268,6 +268,11 @@
             },
             {
                 "category": "Python",
+                "command": "python.manageConfigs",
+                "title": "%python.command.python.manageConfigs.title%"
+            },
+            {
+                "category": "Python",
                 "command": "python.createTerminal",
                 "title": "%python.command.python.createTerminal.title%"
             },
@@ -1246,7 +1251,13 @@
                 },
                 {
                     "category": "Python",
-                    "command": "python.configureTests",
+                    "command": "python.changeTestFramework",
+                    "title": "%python.command.python.changeTestFramework.title%",
+                    "when": "!virtualWorkspace && shellExecutionSupported"
+                },
+                {
+                    "category": "Python",
+                    "command": "python.",
                     "title": "%python.command.python.configureTests.title%",
                     "when": "!virtualWorkspace && shellExecutionSupported"
                 },
@@ -1481,10 +1492,16 @@
         "viewsWelcome": [
             {
                 "view": "testing",
-                "contents": "We have detected pytest in your workspace, instead [run with unittest](http://example.com).\n[Run pytest quick discovery](command:python.quickConfig)\n[create test config](command:python.configureTests)",
-                "when": "!virtualWorkspace && shellExecutionSupported"
+                "contents": "We have detected pytest in your workspace, instead [run with unittest](command:python.changeTestFramework?[\"pytest\"]).\n[Run pytest quick discovery](command:python.configureTests?[\"pytest\",\"true\"])\n[create test config](command:python.configureTests?[\"pytest\",\"false\"])",
+                "when": "!virtualWorkspace && shellExecutionSupported && python.pytestFrameworkEnabled"
+            },
+            {
+                "view": "testing",
+                "contents": "Default framework is unittest, instead [run with pytest](command:python.changeTestFramework?[\"unittest\"]). Note, you may need to install pytest in your environment.\n[Run unittest quick discovery](command:python.configureTests?[\"unittest\",\"true\"])\n[create test config](command:python.configureTests?[\"unittest\",\"false\"])",
+                "when": "!virtualWorkspace && shellExecutionSupported && !python.pytestFrameworkEnabled"
             }
         ],
+
         "yamlValidation": [
             {
                 "fileMatch": ".condarc",

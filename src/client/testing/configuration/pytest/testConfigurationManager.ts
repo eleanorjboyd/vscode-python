@@ -62,6 +62,7 @@ export class ConfigurationManager extends TestConfigurationManager {
         }
         // optional? testing args
         // optional: env file, config file, environment variables
+        // id unittest then we should ask for pattern?
 
         const installed = await this.installer.isInstalled(Product.pytest);
         if (!installed) {
@@ -71,8 +72,8 @@ export class ConfigurationManager extends TestConfigurationManager {
             name: configName,
             type: configType.test,
             subtype: configSubTypeList,
-            args: [],
-            framework: frameworkType.pytest,
+            args,
+            framework: frameworkType.unittest,
         };
         await this.testConfigSettingsService.updateTestArgs(wkspace.fsPath, Product.pytest, configArg);
 

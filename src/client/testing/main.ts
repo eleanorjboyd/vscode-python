@@ -12,7 +12,7 @@ import { EventName } from '../telemetry/constants';
 import { captureTelemetry, sendTelemetryEvent } from '../telemetry/index';
 import { selectTestWorkspace } from './common/testUtils';
 import { TestSettingsPropertyNames } from './configuration/types';
-import { ITestConfigurationService, ITestsHelper } from './common/types';
+import { ITestConfigurationService, ITestsHelper, UnitTestProduct } from './common/types';
 import { ITestingService } from './types';
 import { IExtensionActivationService } from '../activation/types';
 import { ITestController } from './testController/common/types';
@@ -21,6 +21,7 @@ import { ExtensionContextKey } from '../common/application/contextKeys';
 import { checkForFailedTests, updateTestResultMap } from './testController/common/testItemUtilities';
 import { Testing } from '../common/utils/localize';
 import { traceVerbose } from '../logging';
+import { CommandManager } from '../common/application/commandManager';
 
 @injectable()
 export class TestingService implements ITestingService {
@@ -81,6 +82,11 @@ export class UnitTestManagementService implements IExtensionActivationService {
             );
         }
 
+        // set context key for test framework
+        let myContextKey = 'python.pytestFrameworkEnabled';
+        const commandManager = this.serviceContainer.get<ICommandManager>(ICommandManager);
+        commandManager.executeCommand('setContext', myContextKey, true);
+
         if (this.testController) {
             this.testController.onRefreshingStarted(async () => {
                 await this.context.setContext(ExtensionContextKey.RefreshingTests, true);
@@ -103,7 +109,8 @@ export class UnitTestManagementService implements IExtensionActivationService {
                     );
                     if (response === Testing.configureTests) {
                         await commandManager.executeCommand(
-                            constants.Commands.Tests_Configure, //ejfb: seems like the call to make it
+                            constants.Commands.Tests_Configure, //ejfb: CHECK THIS
+                            undefined,
                             undefined,
                             constants.CommandSource.ui,
                             unconfigured[0].uri,
@@ -133,8 +140,16 @@ export class UnitTestManagementService implements IExtensionActivationService {
         await Promise.all(changedWorkspaces.map((u) => this.testController?.refreshTestData(u)));
     }
 
+    private async manageTestConfigs() {
+        // show action menu (actions being, add, remove, go to...)
+        const configurationService = this.serviceContainer.get<ITestConfigurationService>(ITestConfigurationService);
+
+        await configurationService.selectManageConfigAction();
+    }
+
     @captureTelemetry(EventName.UNITTEST_CONFIGURE, undefined, false)
-    private async configureTests(quickConfig: boolean, resource?: Uri) {
+    private async configureTests(quickConfig: boolean, resource?: Uri, framework?: string) {
+        // have ALL go through here
         let wkspace: Uri | undefined;
         if (resource) {
             const wkspaceFolder = this.workspaceService.getWorkspaceFolder(resource);
@@ -153,10 +168,25 @@ export class UnitTestManagementService implements IExtensionActivationService {
             return;
         }
         const configurationService = this.serviceContainer.get<ITestConfigurationService>(ITestConfigurationService);
-        if (quickConfig) {
-            await configurationService.setupQuickRun(wkspace!);
+
+        let frameworkEnum: UnitTestProduct | undefined;
+        if (framework) {
+            // might need to check - if framework is not empty string?
+            switch (framework) {
+                case 'pytest':
+                    frameworkEnum = Product.pytest;
+                    break;
+                case 'unittest':
+                    frameworkEnum = Product.unittest;
+                    break;
+                default:
+                    throw new Error('Invalid Test Framework');
+            }
+        }
+        if (quickConfig && frameworkEnum) {
+            await configurationService.setupQuickRun(wkspace!, frameworkEnum);
         } else {
-            await configurationService.promptToEnableAndConfigureTestFramework(wkspace!);
+            await configurationService.promptToEnableAndConfigureTestFramework(wkspace!, frameworkEnum);
         }
     }
     private registerCommands(): void {
@@ -165,26 +195,58 @@ export class UnitTestManagementService implements IExtensionActivationService {
         this.disposableRegistry.push(
             commandManager.registerCommand(
                 constants.Commands.Tests_Configure,
-                (_, _cmdSource: constants.CommandSource = constants.CommandSource.commandPalette, resource?: Uri) => {
+                (
+                    arg1: string | undefined,
+                    arg2: string | undefined,
+                    _cmdSource: constants.CommandSource = constants.CommandSource.commandPalette,
+                    resource?: Uri,
+                ) => {
+                    const framework = arg1 as string | undefined;
+                    // if quickConfig is undefined, it will be set to false
+                    let quickConfig = arg2 === 'true';
+
                     // Ignore the exceptions returned.
                     // This command will be invoked from other places of the extension.
                     // EJFB: this is what is called when that button is pressed
-                    this.configureTests(false, resource).ignoreErrors();
+                    this.configureTests(quickConfig, resource, framework).ignoreErrors();
                     traceVerbose('Testing: Trigger refresh after config change');
                     this.testController?.refreshTestData(resource, { forceRefresh: true });
                     this.testController?.refreshTestConfigs(resource, { forceRefresh: true });
                 },
             ),
             commandManager.registerCommand(
-                constants.Commands.Test_Quick_Configure,
+                constants.Commands.Change_Test_Framework,
+                (
+                    currFramework: string | undefined,
+                    _cmdSource: constants.CommandSource = constants.CommandSource.commandPalette,
+                    _resource?: Uri,
+                ) => {
+                    let myContextKey = 'python.pytestFrameworkEnabled';
+                    let updatedVal = false;
+                    switch (currFramework) {
+                        case 'pytest':
+                            // switch to unittest
+                            updatedVal = false;
+                            break;
+                        case 'unittest':
+                            // switch to pytest
+                            updatedVal = true;
+                            break;
+                        default:
+                            break;
+                    }
+                    const commandManager = this.serviceContainer.get<ICommandManager>(ICommandManager);
+                    commandManager.executeCommand('setContext', myContextKey, updatedVal);
+                },
+            ),
+            commandManager.registerCommand(
+                constants.Commands.Test_Manage_Configs,
                 (_, _cmdSource: constants.CommandSource = constants.CommandSource.commandPalette, resource?: Uri) => {
-                    // Ignore the exceptions returned.
-                    // This command will be invoked from other places of the extension.
-                    // EJFB: true to set it to quick config
-                    this.configureTests(true, resource).ignoreErrors();
-                    traceVerbose('Testing: Trigger refresh after config change');
-                    this.testController?.refreshTestData(resource, { forceRefresh: true });
-                    this.testController?.refreshTestConfigs(resource, { forceRefresh: true });
+                    traceVerbose('Testing, manage config, triggering manage config submenu');
+                    this.configureTests(false, resource).ignoreErrors();
+
+                    // this.testController?.refreshTestData(resource, { forceRefresh: true });
+                    // this.testController?.refreshTestConfigs(resource, { forceRefresh: true });
                 },
             ),
         );

@@ -110,6 +110,21 @@ export abstract class TestConfigurationManager implements ITestConfigurationMana
         return this.showQuickPickMultiSelect(items, options);
     }
 
+    protected async selectConfigAction(): Promise<string | undefined> {
+        const options = {
+            ignoreFocusOut: true,
+            matchOnDescription: true,
+            matchOnDetail: true,
+            placeHolder: 'Select the action to perform',
+        };
+        const items: QuickPickItem[] = [
+            { label: 'add', description: 'Create a new configuration' },
+            { label: 'delete', description: 'remove an existing configuration' },
+            { label: 'settings.json', description: 'Manage in settings.json ' },
+        ];
+        return this.showQuickPick(items, options);
+    }
+
     protected async selectConfigName(): Promise<string> {
         // will need to add verification of no repeated names
         const options = {

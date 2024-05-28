@@ -61,11 +61,12 @@ export interface ITestsHelper {
 
 export const ITestConfigurationService = Symbol('ITestConfigurationService');
 export interface ITestConfigurationService {
+    selectManageConfigAction(): Promise<string | undefined>;
     displayTestFrameworkError(wkspace: Uri): Promise<void>;
     selectTestRunner(placeHolderMessage: string): Promise<UnitTestProduct | undefined>;
     enableTest(wkspace: Uri, product: UnitTestProduct): Promise<void>;
-    promptToEnableAndConfigureTestFramework(wkspace: Uri): Promise<void>;
-    setupQuickRun(wkspace: Uri): Promise<void>;
+    promptToEnableAndConfigureTestFramework(wkspace: Uri, framework?: UnitTestProduct): Promise<void>;
+    setupQuickRun(wkspace: Uri, framework: UnitTestProduct): Promise<void>;
 }
 
 export const ITestConfigSettingsService = Symbol('ITestConfigSettingsService');

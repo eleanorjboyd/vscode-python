@@ -17,6 +17,10 @@ export async function selectTestWorkspace(appShell: IApplicationShell): Promise<
     }
 }
 
+export async function selectManageConfigAction() Promise<string | undefined> {
+    
+}
+
 @injectable()
 export class TestsHelper implements ITestsHelper {
     public parseProviderName(product: UnitTestProduct): TestProvider {
