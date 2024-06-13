@@ -29,6 +29,7 @@ import {
     startDiscoveryNamedPipe,
 } from '../common/utils';
 import { traceError, traceInfo, traceLog, traceVerbose } from '../../../logging';
+import { TestConfig } from '../../configuration/types';
 
 /**
  * Wrapper class for unittest test discovery. This is where we call `runTestCommand`.
@@ -41,23 +42,33 @@ export class UnittestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
         private readonly envVarsService?: IEnvironmentVariablesProvider,
     ) {}
 
-    public async discoverTests(uri: Uri, executionFactory?: IPythonExecutionFactory): Promise<DiscoveredTestPayload> {
+    public async discoverTests(
+        uri: Uri,
+        executionFactory?: IPythonExecutionFactory,
+        testConfig?: TestConfig,
+    ): Promise<DiscoveredTestPayload> {
+        if (testConfig === undefined) {
+            throw new Error('Test configuration is required for unittest discovery.');
+        }
         const settings = this.configSettings.getSettings(uri);
-        const { unittestArgs } = settings.testing;
+        const unittestArgs = testConfig.args ? testConfig.args : [];
         const cwd = settings.testing.cwd && settings.testing.cwd.length > 0 ? settings.testing.cwd : uri.fsPath;
 
         const deferredTillEOT: Deferred<void> = createDeferred<void>();
 
         const { name, dispose } = await startDiscoveryNamedPipe((data: DiscoveredTestPayload | EOTTestPayload) => {
-            this.resultResolver?.resolveDiscovery(data, deferredTillEOT);
+            this.resultResolver?.resolveDiscovery(data, deferredTillEOT, testConfig);
         });
 
         // set up env with the pipe name
-        let env: EnvironmentVariables | undefined = await this.envVarsService?.getEnvironmentVariables(uri);
-        if (env === undefined) {
-            env = {} as EnvironmentVariables;
+        let mutableEnv: EnvironmentVariables | undefined = await this.envVarsService?.getEnvironmentVariables(uri);
+        if (mutableEnv === undefined) {
+            mutableEnv = {} as EnvironmentVariables;
         }
-        env.TEST_RUN_PIPE = name;
+        if (testConfig.env) {
+            Object.assign(mutableEnv, testConfig.env);
+        }
+        mutableEnv.TEST_RUN_PIPE = name;
 
         const command = buildDiscoveryCommand(unittestArgs);
         const options: TestCommandOptions = {

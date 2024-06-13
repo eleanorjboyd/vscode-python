@@ -137,58 +137,6 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
             false,
             DebugTestTag,
         );
-        // const runProfilec = this.testController.createRunProfile(
-        //     'test config: test data',
-        //     TestRunProfileKind.Debug,
-        //     this.runTests.bind(this),
-        //     true,
-        //     DebugTestTag,
-        // );
-        // const runProfiled = this.testController.createRunProfile(
-        //     'test config: test data',
-        //     TestRunProfileKind.Run,
-        //     this.runTests.bind(this),
-        //     false,
-        //     RunTestTag,
-        // );
-        // const runProfileList = [runProfileA, runProfileb, runProfilec, runProfiled];
-        // for (const runProfile of runProfileList) {
-        //     runProfile.configureHandler = async () => {
-        //         const stringPath = `${this.workspaceService.rootPath}/.vscode/settings.json`;
-        //         const settingsJsonPath = Uri.file(stringPath);
-
-        //         try {
-        //             const settingKey = 'python.testing.configs';
-        //             const editor = await this.documentManager.showTextDocument(settingsJsonPath);
-        //             const text = editor.document.getText();
-        //             const settingIndex = text.indexOf(settingKey);
-
-        //             if (settingIndex !== -1) {
-        //                 // const position = editor.document.positionAt(settingIndex);
-        //                 editor.revealRange(new Range());
-        //             } else {
-        //                 traceError('Setting not found');
-        //             }
-        //         } catch (error) {
-        //             traceError('Error configuring test profile', error);
-        //         }
-        //     };
-
-        //     // console.log('Configuring test profile');
-        //     // // /Users/eleanorboyd/testingFiles/custom-configs-folder/simple_workspace/.vscode/settings.json
-        //     // const stringPath = `${this.workspaceService.rootPath}/.vscode/settings.json`;
-        //     // const settingsJsonPath = Uri.file(stringPath);
-        //     // traceError("Configuring test profile doesn't work yet");
-        //     // traceError('workspace.asRelativePath(settingsJsonPath);', workspace.asRelativePath(settingsJsonPath));
-        //     // await this.documentManager.showTextDocument(settingsJsonPath).then((editor: TextEditor) => {
-        //     //     const text = editor.document.getText();
-        //     //     // find in text where it says "python.testing.configs"
-        //     //     const pythonTestingConfigsIndex = text.indexOf('python.testing.configs');
-        //     //     // open to the pythonTestingConfigsIndex
-        //     //     const position = editor.document.positionAt(pythonTestingConfigsIndex);
-        //     //     editor.selection = new Selection(position, position);
-        //     // });
-        // }
         this.disposables.push(
             // CC: create specific run profiles
             runProfileA,
@@ -369,11 +317,33 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
                     if (workspace && workspace.uri) {
                         const testAdapter = this.testAdapters.get(workspace.uri);
                         if (testAdapter) {
-                            await testAdapter.discoverTests(
-                                this.testController,
-                                this.refreshCancellation.token,
-                                this.pythonExecFactory,
-                            );
+                            /// Get all discovery configs here,
+                            // run each that exists or run simple discovery if no config of discovery type is found
+                            const pySettings = this.configSettings.getSettings(workspace.uri);
+                            const { configs } = pySettings;
+                            let hasDiscoveryConfig = false;
+                            for (const config of configs) {
+                                if (
+                                    config.type === configType.test &&
+                                    config.subtype?.includes(configSubType.testDiscovery)
+                                ) {
+                                    hasDiscoveryConfig = true;
+                                    await testAdapter.discoverTests(
+                                        this.testController,
+                                        this.refreshCancellation.token,
+                                        this.pythonExecFactory,
+                                        config,
+                                    );
+                                }
+                            }
+                            if (hasDiscoveryConfig === false) {
+                                // no discovery config found, run default discovery
+                                await testAdapter.discoverTests(
+                                    this.testController,
+                                    this.refreshCancellation.token,
+                                    this.pythonExecFactory,
+                                );
+                            }
                         } else {
                             traceError('Unable to find test adapter for workspace.');
                         }

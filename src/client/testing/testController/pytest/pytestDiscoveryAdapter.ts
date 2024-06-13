@@ -113,6 +113,7 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
         mutableEnv.PYTHONPATH = pythonPathCommand;
         mutableEnv.TEST_RUN_PIPE = discoveryPipeName;
         // add config env vars
+        // TODO check
         if (testConfig.env) {
             Object.assign(mutableEnv, testConfig.env);
         }

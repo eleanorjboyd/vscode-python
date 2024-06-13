@@ -14,7 +14,7 @@ import { ITestDiscoveryAdapter, ITestExecutionAdapter, ITestResultResolver } fro
 import { IPythonExecutionFactory } from '../../common/process/types';
 import { ITestDebugLauncher } from '../common/types';
 import { buildErrorNodeOptions } from './common/utils';
-import { TestConfig } from '../configuration/types';
+import { configSubType, configType, frameworkType, TestConfig } from '../configuration/types';
 
 /**
  * This class exposes a test-provider-agnostic way of discovering tests.
@@ -126,6 +126,12 @@ export class WorkspaceTestAdapter {
         if (this.discovering) {
             traceError('Test discovery already in progress, not starting a new one.');
             return this.discovering.promise;
+        }
+
+        const framework = this.testProvider === 'pytest' ? frameworkType.pytest : frameworkType.unittest
+        // if config isn't found, create default discovery config for the framework
+        if (!testConfig) {
+            testConfig = new TestConfig('simple discovery', configType.test, configSubType.testDiscovery, [], framework);
         }
 
         const deferred = createDeferred<void>();
