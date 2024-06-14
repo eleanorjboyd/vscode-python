@@ -35,6 +35,11 @@ export class UnitTestConfigurationService implements ITestConfigurationService {
         this.workspaceService = serviceContainer.get<IWorkspaceService>(IWorkspaceService);
     }
 
+    public selectManageConfigAction(): Promise<string | undefined> {
+        console.log('this', this.displayTestFrameworkError);
+        return Promise.resolve(undefined);
+    }
+
     public async displayTestFrameworkError(wkspace: Uri): Promise<void> {
         const settings = this.configurationService.getSettings(wkspace);
         let enabledCount = settings.testing.pytestEnabled ? 1 : 0;

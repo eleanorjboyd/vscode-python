@@ -1492,12 +1492,12 @@
         "viewsWelcome": [
             {
                 "view": "testing",
-                "contents": "We have detected pytest in your workspace, instead [run with unittest](command:python.changeTestFramework?[\"pytest\"]).\n[Run pytest quick discovery](command:python.configureTests?[\"pytest\",\"true\"])\n[create test config](command:python.configureTests?[\"pytest\",\"false\"])",
+                "contents": "Run or configure with pytest below, or [run with unittest](command:python.changeTestFramework?[\"pytest\"]).\n[Run Pytest Discovery](command:python.configureTests?[\"pytest\",\"true\"])\n[Create Test Config](command:python.configureTests?[\"pytest\",\"false\"])",
                 "when": "!virtualWorkspace && shellExecutionSupported && python.pytestFrameworkEnabled"
             },
             {
                 "view": "testing",
-                "contents": "Default framework is unittest, instead [run with pytest](command:python.changeTestFramework?[\"unittest\"]). Note, you may need to install pytest in your environment.\n[Run unittest quick discovery](command:python.configureTests?[\"unittest\",\"true\"])\n[create test config](command:python.configureTests?[\"unittest\",\"false\"])",
+                "contents": "Run or configure with unittest below, or [run with pytest](command:python.changeTestFramework?[\"unittest\"]).\n[Run Unittest Discovery](command:python.configureTests?[\"unittest\",\"true\"])\n[Create Test Config](command:python.configureTests?[\"unittest\",\"false\"])",
                 "when": "!virtualWorkspace && shellExecutionSupported && !python.pytestFrameworkEnabled"
             }
         ],

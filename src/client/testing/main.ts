@@ -21,7 +21,6 @@ import { ExtensionContextKey } from '../common/application/contextKeys';
 import { checkForFailedTests, updateTestResultMap } from './testController/common/testItemUtilities';
 import { Testing } from '../common/utils/localize';
 import { traceVerbose } from '../logging';
-import { CommandManager } from '../common/application/commandManager';
 
 @injectable()
 export class TestingService implements ITestingService {
@@ -69,6 +68,8 @@ export class UnitTestManagementService implements IExtensionActivationService {
             return;
         }
         this.activatedOnce = true;
+        // TODO: Remove
+        this.manageTestConfigs();
 
         this.registerHandlers();
         this.registerCommands();

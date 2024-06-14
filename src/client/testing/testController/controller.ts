@@ -18,6 +18,7 @@ import {
     TextDocument,
     TestRunProfile,
 } from 'vscode';
+import * as path from 'path';
 import { IExtensionSingleActivationService } from '../../activation/types';
 import { ICommandManager, IWorkspaceService } from '../../common/application/types';
 import * as constants from '../../common/constants';
@@ -142,6 +143,29 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
             runProfileA,
             runProfileb,
         );
+
+        // set setting for pytest or unittest enablement
+        // check to see if pytest or unittest is enabled yet
+        const workspaces: readonly WorkspaceFolder[] = this.workspaceService.workspaceFolders || [];
+        workspaces.forEach(async (workspace) => {
+            const settings = this.configSettings.getSettings(workspace.uri);
+            if (!settings.testing.pytestEnabled && !settings.testing.unittestEnabled) {
+                const execService = await this.pythonExecFactory.createActivatedEnvironment({
+                    resource: workspace.uri,
+                    allowEnvironmentFetchExceptions: false,
+                });
+                // if neither pytest nor unittest are enabled
+                // check to see if pytest is installed in the environment
+                const scriptPath = path.join(constants.EXTENSION_ROOT_DIR, 'python_files', 'installed_check.py');
+                const result = await execService.exec([scriptPath, 'pytest'], { throwOnStdErr: false });
+                if (result.stderr === undefined && result.stdout.trim() === '[]') {
+                    await this.configSettings.updateSetting('testing.pytestEnabled', true, workspace.uri);
+                } else {
+                    await this.configSettings.updateSetting('testing.unittestEnabled', true, workspace.uri);
+                }
+            }
+        });
+
         this.testController.resolveHandler = this.resolveChildren.bind(this);
         this.testController.refreshHandler = (token: CancellationToken) => {
             this.disposables.push(
@@ -488,6 +512,7 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
                                         config.subtype?.includes(configSubType.testRun) &&
                                         request.profile?.label === config.name // is this how I want to do this?? do they need IDs?
                                     ) {
+                                        // will multiple ever get pulled??
                                         hasRunConfig = true;
                                         console.log('running discovery config:', config);
                                         return testAdapter.executeTests(
@@ -542,20 +567,52 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
                             if (pythonTestAdapterRewriteEnabled(this.serviceContainer)) {
                                 const pySettings = this.configSettings.getSettings(workspace.uri);
                                 const { configs } = pySettings;
-                                // duplicate for selection
+                                let hasRunConfig = false;
                                 const testAdapter =
                                     this.testAdapters.get(workspace.uri) ||
                                     (this.testAdapters.values().next().value as WorkspaceTestAdapter);
-                                return testAdapter.executeTests(
-                                    this.testController,
-                                    runInstance,
-                                    testItems,
-                                    configs[0], // TEMP
-                                    token,
-                                    request.profile?.kind === TestRunProfileKind.Debug,
-                                    this.pythonExecFactory,
-                                    this.debugLauncher,
-                                );
+                                // will need to check for request.profile?.kind to see if it is debug or run and which config to use
+                                // select, framework, config, rewrite, debug type, subtype, name and kind
+                                // do I need both  TestRunProfileKind.Debug and configSubtype.testDebug??
+                                for (const config of configs) {
+                                    if (
+                                        config.type === configType.test &&
+                                        config.subtype?.includes(configSubType.testRun) &&
+                                        request.profile?.label === config.name // is this how I want to do this?? do they need IDs?
+                                    ) {
+                                        // will multiple ever get pulled??
+                                        hasRunConfig = true;
+                                        return testAdapter.executeTests(
+                                            this.testController,
+                                            runInstance,
+                                            testItems,
+                                            config,
+                                            token,
+                                            request.profile?.kind === TestRunProfileKind.Debug,
+                                            this.pythonExecFactory,
+                                            this.debugLauncher,
+                                        );
+                                    }
+                                    if (hasRunConfig === false) {
+                                        // no run config found, run default tests
+                                        // get default config (or create one?)
+                                        const configDefault = createDefaultTestConfig(
+                                            'default',
+                                            [configSubType.testRun],
+                                            frameworkType.pytest,
+                                        );
+                                        return testAdapter.executeTests(
+                                            this.testController,
+                                            runInstance,
+                                            testItems,
+                                            configDefault,
+                                            token,
+                                            request.profile?.kind === TestRunProfileKind.Debug,
+                                            this.pythonExecFactory,
+                                            this.debugLauncher,
+                                        );
+                                    }
+                                }
                             }
                             // below is old way of running unittest execution
                             return this.unittest.runTests(

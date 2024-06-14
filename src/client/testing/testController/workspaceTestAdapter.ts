@@ -5,7 +5,7 @@ import * as util from 'util';
 import { CancellationToken, TestController, TestItem, TestRun, Uri } from 'vscode';
 import { createDeferred, Deferred } from '../../common/utils/async';
 import { Testing } from '../../common/utils/localize';
-import { traceError } from '../../logging';
+import { traceError, traceInfo } from '../../logging';
 import { sendTelemetryEvent } from '../../telemetry';
 import { EventName } from '../../telemetry/constants';
 import { TestProvider } from '../types';
@@ -14,7 +14,7 @@ import { ITestDiscoveryAdapter, ITestExecutionAdapter, ITestResultResolver } fro
 import { IPythonExecutionFactory } from '../../common/process/types';
 import { ITestDebugLauncher } from '../common/types';
 import { buildErrorNodeOptions } from './common/utils';
-import { configSubType, configType, frameworkType, TestConfig } from '../configuration/types';
+import { frameworkType, TestConfig } from '../configuration/types';
 
 /**
  * This class exposes a test-provider-agnostic way of discovering tests.
@@ -52,6 +52,7 @@ export class WorkspaceTestAdapter {
             traceError('Test execution already in progress, not starting a new one.');
             return this.executing.promise;
         }
+        traceInfo('test execution run with config: ', testConfig?.name);
 
         const deferred = createDeferred<void>();
         this.executing = deferred;
@@ -74,7 +75,7 @@ export class WorkspaceTestAdapter {
             });
             const testCaseIds = Array.from(testCaseIdsSet);
             // ** execution factory only defined for new rewrite way
-            if (executionFactory !== undefined) {
+            if (executionFactory !== undefined && testConfig !== undefined) {
                 await this.executionAdapter.runTests(
                     this.workspaceUri,
                     testCaseIds,
@@ -128,11 +129,20 @@ export class WorkspaceTestAdapter {
             return this.discovering.promise;
         }
 
-        const framework = this.testProvider === 'pytest' ? frameworkType.pytest : frameworkType.unittest
+        const framework = this.testProvider === 'pytest' ? frameworkType.pytest : frameworkType.unittest;
         // if config isn't found, create default discovery config for the framework
         if (!testConfig) {
-            testConfig = new TestConfig('simple discovery', configType.test, configSubType.testDiscovery, [], framework);
+            // TODO: fix this to create it
+            throw new Error(`TestConfig not found: ${framework}`);
+            // testConfig = new TestConfig(
+            //     'simple discovery',
+            //     configType.test,
+            //     configSubType.testDiscovery,
+            //     [],
+            //     framework,
+            // );
         }
+        traceInfo('test execution run with config: ', testConfig?.name);
 
         const deferred = createDeferred<void>();
         this.discovering = deferred;

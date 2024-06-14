@@ -69,6 +69,29 @@ def process_requirements(req_file: pathlib.Path) -> List[Dict[str, Union[str, in
     return diagnostics
 
 
+def check_pytest() -> List[Dict[str, Union[str, int]]]:
+    diagnostics = []
+    req = parse_requirements("pytest")
+    print("REQ", req)
+    if req:
+        try:
+            # Check if package is installed
+            metadata(req.name)
+        except Exception:
+            diagnostics.append(
+                {
+                    "line": 0,
+                    "character": 0,
+                    "endLine": 0,
+                    "endCharacter": len(req.name),
+                    "package": req.name,
+                    "code": "not-installed",
+                    "severity": SEVERITY,
+                }
+            )
+    return diagnostics
+
+
 def get_pos(lines: List[str], text: str) -> Tuple[int, int, int, int]:
     for n, line in enumerate(lines):
         index = line.find(text)
@@ -116,9 +139,13 @@ def get_diagnostics(req_file: pathlib.Path) -> List[Dict[str, Union[str, int]]]:
 
     if req_file.name == "pyproject.toml":
         diagnostics = process_pyproject(req_file)
-    else:
+    elif req_file.suffix in [".txt", ".in"]:
         diagnostics = process_requirements(req_file)
-
+    else:
+        print("RUNNING PYTEST :)")
+        diagnostics = check_pytest()
+    # other else, take raw package name and process just this package (pytest)
+    # python (script install check) and then pytest
     return diagnostics
 
 

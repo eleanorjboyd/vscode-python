@@ -20,16 +20,7 @@ import {
 } from './types';
 import { Deferred, createDeferred } from '../../../common/utils/async';
 import { createNamedPipeServer, generateRandomPipeName } from '../../../common/pipes/namedPipes';
-import {
-    TestConfig,
-    configSubType,
-    configType,
-    frameworkType,
-    TestConfig,
-    configSubType,
-    configType,
-    frameworkType,
-} from '../../configuration/types';
+import { configSubType, configType, frameworkType, TestConfig } from '../../configuration/types';
 
 export function fixLogLines(content: string): string {
     const lines = content.split(/\r?\n/g);
@@ -364,7 +355,6 @@ export function populateTestTree(
     resultResolver: ITestResultResolver,
     token?: CancellationToken,
     testConfig?: TestConfig,
-    testConfig?: TestConfig,
 ): void {
     // If testRoot is undefined, use the info of the root item of testTreeData to create a test item, and append it to the test controller.
     if (!testRoot) {
@@ -378,7 +368,7 @@ export function populateTestTree(
         testRoot = testController.createTestItem(labelName, labelName, Uri.file(testTreeData.path));
         // EJFB TODO: check if this happens for anything other than the main root node?
         // there the name would be good to update with the name of the config?
-        let labelName: string = testTreeData.name;
+        labelName = testTreeData.name;
         if (testConfig) {
             // labelName = `[${testConfig.name}]: ${testTreeData.name}`;
             labelName = `${testTreeData.name} (config: ${testConfig.name})`;

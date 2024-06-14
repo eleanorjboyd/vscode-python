@@ -31,10 +31,10 @@ export interface TestConfig {
 export interface ITestingSettings {
     readonly promptToConfigure: boolean;
     readonly debugPort: number;
-    readonly pytestEnabled: boolean;
+    pytestEnabled: boolean;
     pytestPath: string;
     pytestArgs: string[];
-    readonly unittestEnabled: boolean;
+    unittestEnabled: boolean;
     unittestArgs: string[];
     cwd?: string;
     readonly autoTestDiscoverOnSaveEnabled: boolean;
