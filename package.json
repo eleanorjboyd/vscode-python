@@ -273,6 +273,11 @@
             },
             {
                 "category": "Python",
+                "command": "python.addConfig",
+                "title": "%python.command.python.addConfig.title%"
+            },
+            {
+                "category": "Python",
                 "command": "python.createTerminal",
                 "title": "%python.command.python.createTerminal.title%"
             },
@@ -1226,8 +1231,8 @@
             ],
             "testing/pythonConfig": [
                 {
-                    "command": "python.createEnvironment",
-                    "title": "%python.command.python.execInTerminalIcon.title%"
+                    "command": "python.manageConfigs",
+                    "title": "%python.command.python.manageConfigs.title%"
                 }
             ],
             "commandPalette": [

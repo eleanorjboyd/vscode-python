@@ -66,6 +66,7 @@ export namespace Commands {
     export const Change_Test_Framework = 'python.changeTestFramework';
     export const Test_Quick_Configure = 'python.quickConfig';
     export const Test_Manage_Configs = 'python.manageConfigs';
+    export const Test_Add_Config = 'python.addConfig';
     export const TriggerEnvironmentSelection = 'python.triggerEnvSelection';
     export const ViewOutput = 'python.viewOutput';
 }

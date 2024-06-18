@@ -105,6 +105,7 @@ export interface ICommandNameArgumentTypeMapping extends ICommandNameWithoutArgu
     [Commands.Change_Test_Framework]: [undefined | string, undefined | CommandSource, undefined | Uri];
     [Commands.Test_Quick_Configure]: [undefined, undefined | CommandSource, undefined | Uri];
     [Commands.Test_Manage_Configs]: [undefined, undefined | CommandSource, undefined | Uri];
+    [Commands.Test_Add_Config]: [undefined, undefined | CommandSource, undefined | Uri];
     [Commands.LaunchTensorBoard]: [TensorBoardEntrypoint, TensorBoardEntrypointTrigger];
     ['workbench.view.testing.focus']: [];
     ['cursorMove']: [

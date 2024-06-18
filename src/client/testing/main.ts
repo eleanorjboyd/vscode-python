@@ -1,7 +1,18 @@
 'use strict';
 
 import { inject, injectable } from 'inversify';
-import { ConfigurationChangeEvent, Disposable, Uri, tests, TestResultState, WorkspaceFolder } from 'vscode';
+import {
+    ConfigurationChangeEvent,
+    Disposable,
+    Uri,
+    tests,
+    TestResultState,
+    WorkspaceFolder,
+    workspace,
+    window,
+    Position,
+    Range,
+} from 'vscode';
 import { IApplicationShell, ICommandManager, IContextKeyManager, IWorkspaceService } from '../common/application/types';
 import * as constants from '../common/constants';
 import '../common/extensions';
@@ -149,7 +160,35 @@ export class UnitTestManagementService implements IExtensionActivationService {
     }
 
     @captureTelemetry(EventName.UNITTEST_CONFIGURE, undefined, false)
-    private async configureTests(quickConfig: boolean, resource?: Uri, framework?: string) {
+    private async configureTests() {
+        // open settings.json at the "python.configs" if it exists, if not then at the top level
+        // Get the path to the settings.json file
+        const settingsUri = Uri.file(`${workspace.rootPath}/.vscode/settings.json`);
+        if (!settingsUri) {
+            return;
+        }
+        const document = await workspace.openTextDocument(settingsUri);
+        const editor = await window.showTextDocument(document);
+        // Parse the JSON contentDEY
+        const text = document.getText();
+        // const json = JSON.parse(text);
+
+        // Check if "python.configs" exists
+        const pythonConfigsPosition = text.indexOf('"python.configs"');
+        if (pythonConfigsPosition !== -1) {
+            // If "python.configs" exists, reveal it
+            const position = document.positionAt(pythonConfigsPosition);
+            // const position = new Position(pythonConfigsPosition, 0);
+
+            editor.revealRange(new Range(position, position));
+        } else {
+            const position = new Position(0, 0);
+            editor.revealRange(new Range(position, position));
+        }
+    }
+
+    @captureTelemetry(EventName.UNITTEST_CONFIGURE, undefined, false)
+    private async addConfig(quickConfig: boolean, resource?: Uri, framework?: string) {
         // have ALL go through here
         let wkspace: Uri | undefined;
         if (resource) {
@@ -209,7 +248,7 @@ export class UnitTestManagementService implements IExtensionActivationService {
                     // Ignore the exceptions returned.
                     // This command will be invoked from other places of the extension.
                     // EJFB: this is what is called when that button is pressed
-                    this.configureTests(quickConfig, resource, framework).ignoreErrors();
+                    this.addConfig(quickConfig, resource, framework).ignoreErrors();
                     traceVerbose('Testing: Trigger refresh after config change');
                     this.testController?.refreshTestData(resource, { forceRefresh: true });
                     this.testController?.refreshTestConfigs(resource, { forceRefresh: true });
@@ -241,10 +280,20 @@ export class UnitTestManagementService implements IExtensionActivationService {
                 },
             ),
             commandManager.registerCommand(
+                constants.Commands.Test_Add_Config,
+                (_, _cmdSource: constants.CommandSource = constants.CommandSource.commandPalette, resource?: Uri) => {
+                    traceVerbose('Testing, manage config, triggering manage config submenu', resource);
+                    this.addConfig(false, resource).ignoreErrors();
+
+                    // this.testController?.refreshTestData(resource, { forceRefresh: true });
+                    // this.testController?.refreshTestConfigs(resource, { forceRefresh: true });
+                },
+            ),
+            commandManager.registerCommand(
                 constants.Commands.Test_Manage_Configs,
                 (_, _cmdSource: constants.CommandSource = constants.CommandSource.commandPalette, resource?: Uri) => {
-                    traceVerbose('Testing, manage config, triggering manage config submenu');
-                    this.configureTests(false, resource).ignoreErrors();
+                    traceVerbose('Testing, manage config, triggering manage config submenu', resource);
+                    this.configureTests().ignoreErrors();
 
                     // this.testController?.refreshTestData(resource, { forceRefresh: true });
                     // this.testController?.refreshTestConfigs(resource, { forceRefresh: true });
