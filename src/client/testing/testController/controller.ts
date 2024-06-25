@@ -131,6 +131,13 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
             true,
             RunTestTag,
         );
+        const runProfileAb = this.testController.createRunProfile(
+            'simple test config b',
+            TestRunProfileKind.Run,
+            this.runTests.bind(this),
+            true,
+            RunTestTag,
+        );
         const runProfileb = this.testController.createRunProfile(
             'simple test config',
             TestRunProfileKind.Debug,
@@ -142,6 +149,7 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
             // CC: create specific run profiles
             runProfileA,
             runProfileb,
+            runProfileAb,
         );
 
         // set setting for pytest or unittest enablement

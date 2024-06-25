@@ -14,7 +14,7 @@ import { ITestDiscoveryAdapter, ITestExecutionAdapter, ITestResultResolver } fro
 import { IPythonExecutionFactory } from '../../common/process/types';
 import { ITestDebugLauncher } from '../common/types';
 import { buildErrorNodeOptions } from './common/utils';
-import { frameworkType, TestConfig } from '../configuration/types';
+import { configSubType, configType, frameworkType, TestConfig } from '../configuration/types';
 
 /**
  * This class exposes a test-provider-agnostic way of discovering tests.
@@ -132,15 +132,14 @@ export class WorkspaceTestAdapter {
         const framework = this.testProvider === 'pytest' ? frameworkType.pytest : frameworkType.unittest;
         // if config isn't found, create default discovery config for the framework
         if (!testConfig) {
-            // TODO: fix this to create it
-            throw new Error(`TestConfig not found: ${framework}`);
-            // testConfig = new TestConfig(
-            //     'simple discovery',
-            //     configType.test,
-            //     configSubType.testDiscovery,
-            //     [],
-            //     framework,
-            // );
+            // If config doesn't exist, add a default config for discovery
+            testConfig = {
+                name: 'simple discovery',
+                type: configType.test,
+                subtype: [configSubType.testDiscovery],
+                args: [],
+                framework,
+            };
         }
         traceInfo('test execution run with config: ', testConfig?.name);
 
