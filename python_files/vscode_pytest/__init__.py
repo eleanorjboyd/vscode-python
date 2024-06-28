@@ -47,6 +47,7 @@ class TestNode(TestData):
     """A general class that handles all test data which contains children."""
 
     children: "list[Union[TestNode, TestItem, None]]"
+    lineno: str | None
 
 
 class VSCodePytestError(Exception):
@@ -472,7 +473,7 @@ def build_test_tree(session: pytest.Session) -> TestNode:
                 raise VSCodePytestError("Unable to find original name for parameterized test case")
             except KeyError:
                 function_test_node: TestNode = create_parameterized_function_node(
-                    function_name, get_node_path(test_case), parent_id
+                    function_name, get_node_path(test_case), parent_id, test_case.location[1]
                 )
                 function_nodes_dict[parent_id] = function_test_node
             if test_node not in function_test_node["children"]:
@@ -665,7 +666,7 @@ def create_class_node(class_module: pytest.Class) -> TestNode:
 
 
 def create_parameterized_function_node(
-    function_name: str, test_path: pathlib.Path, function_id: str
+    function_name: str, test_path: pathlib.Path, function_id: str, function_lineno: int
 ) -> TestNode:
     """Creates a function node to be the parent for the parameterized test nodes.
 
@@ -675,12 +676,14 @@ def create_parameterized_function_node(
     function_id -- the previously constructed function id that fits the pattern- absolute path :: any class and method :: parent_part
       must be edited to get a unique id for the function node.
     """
+    function_loc: str = str(function_lineno + 1) if (function_lineno is not None) else ""
     return {
         "name": function_name,
         "path": test_path,
         "type_": "function",
         "children": [],
         "id_": function_id,
+        "lineno": function_loc,
     }
 
 

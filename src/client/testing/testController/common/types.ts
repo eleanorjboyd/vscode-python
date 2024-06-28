@@ -246,6 +246,7 @@ export type DiscoveredTestItem = DiscoveredTestCommon & {
 
 export type DiscoveredTestNode = DiscoveredTestCommon & {
     children: (DiscoveredTestNode | DiscoveredTestItem)[];
+    lineno?: number;
 };
 
 export type DiscoveredTestPayload = {

@@ -390,6 +390,22 @@ export function populateTestTree(
                 if (!node) {
                     node = testController.createTestItem(child.id_, child.name, Uri.file(child.path));
 
+                    // if the test node has a line number,
+                    // this means it is a function of a parameterized test and therefore does get a range
+
+                    if (child.lineno !== undefined) {
+                        const range = new Range(
+                            new Position(Number(child.lineno) - 1, 0),
+                            new Position(Number(child.lineno), 0),
+                        );
+                        node.range = range;
+
+                        // add to our map
+                        resultResolver.runIdToTestItem.set(child.id_, node);
+                        resultResolver.runIdToVSid.set(child.id_, child.id_);
+                        resultResolver.vsIdToRunId.set(child.id_, child.id_);
+                    }
+
                     node.canResolveChildren = true;
                     node.tags = [RunTestTag, DebugTestTag];
                     testRoot!.children.add(node);
