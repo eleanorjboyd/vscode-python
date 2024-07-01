@@ -506,8 +506,9 @@ export function getUri(node: TestItem): Uri | undefined {
 }
 
 export function getTestCaseNodes(testNode: TestItem, collection: TestItem[] = []): TestItem[] {
-    if (!testNode.canResolveChildren && testNode.tags.length > 0) {
+    if (testNode.range && testNode.tags.length > 0) {
         collection.push(testNode);
+        return collection;
     }
 
     testNode.children.forEach((c) => {
