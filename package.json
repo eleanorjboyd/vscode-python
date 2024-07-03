@@ -1229,10 +1229,11 @@
                     "command": "python.reportIssue"
                 }
             ],
-            "testing/pythonConfig": [
+            "testing/profiles/context": [
                 {
                     "command": "python.manageConfigs",
-                    "title": "%python.command.python.manageConfigs.title%"
+                    "title": "%python.command.python.manageConfigs.title%",
+                    "when" : "testing.profile.context.group == 'run' "
                 }
             ],
             "commandPalette": [
