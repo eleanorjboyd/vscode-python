@@ -1,18 +1,7 @@
 'use strict';
 
 import { inject, injectable } from 'inversify';
-import {
-    ConfigurationChangeEvent,
-    Disposable,
-    Uri,
-    tests,
-    TestResultState,
-    WorkspaceFolder,
-    workspace,
-    window,
-    Position,
-    Range,
-} from 'vscode';
+import { ConfigurationChangeEvent, Disposable, Uri, tests, TestResultState, WorkspaceFolder } from 'vscode';
 import { IApplicationShell, ICommandManager, IContextKeyManager, IWorkspaceService } from '../common/application/types';
 import * as constants from '../common/constants';
 import '../common/extensions';
@@ -152,42 +141,6 @@ export class UnitTestManagementService implements IExtensionActivationService {
         await Promise.all(changedWorkspaces.map((u) => this.testController?.refreshTestData(u)));
     }
 
-    private async manageTestConfigs() {
-        // EJFB here
-        // show action menu (actions being, add, remove, go to...)
-        const configurationService = this.serviceContainer.get<ITestConfigurationService>(ITestConfigurationService);
-
-        // await configurationService.selectManageConfigAction();
-    }
-
-    @captureTelemetry(EventName.UNITTEST_CONFIGURE, undefined, false)
-    private async configureTests() {
-        // open settings.json at the "python.configs" if it exists, if not then at the top level
-        // Get the path to the settings.json file
-        const settingsUri = Uri.file(`${workspace.rootPath}/.vscode/settings.json`);
-        if (!settingsUri) {
-            return;
-        }
-        const document = await workspace.openTextDocument(settingsUri);
-        const editor = await window.showTextDocument(document);
-        // Parse the JSON contentDEY
-        const text = document.getText();
-        // const json = JSON.parse(text);
-
-        // Check if "python.configs" exists
-        const pythonConfigsPosition = text.indexOf('"python.configs"');
-        if (pythonConfigsPosition !== -1) {
-            // If "python.configs" exists, reveal it
-            const position = document.positionAt(pythonConfigsPosition);
-            // const position = new Position(pythonConfigsPosition, 0);
-
-            editor.revealRange(new Range(position, position));
-        } else {
-            const position = new Position(0, 0);
-            editor.revealRange(new Range(position, position));
-        }
-    }
-
     @captureTelemetry(EventName.UNITTEST_CONFIGURE, undefined, false)
     private async addConfig(quickConfig: boolean, resource?: Uri, framework?: string) {
         // have ALL go through here
@@ -298,7 +251,6 @@ export class UnitTestManagementService implements IExtensionActivationService {
                     resource?: Uri,
                 ) => {
                     traceVerbose('Testing, manage config, triggering manage config submenu', resource);
-                    // this.configureTests().ignoreErrors();
 
                     const configurationService = this.serviceContainer.get<ITestConfigurationService>(
                         ITestConfigurationService,
@@ -312,15 +264,12 @@ export class UnitTestManagementService implements IExtensionActivationService {
                         wkspace = await selectTestWorkspace(appShell);
                     }
                     let frameworkEnum = Product.pytest;
-                    
+
                     if (wkspace && frameworkEnum) {
                         await configurationService.selectManageConfigAction(wkspace, frameworkEnum);
                     } else {
                         traceVerbose('Testing, manage config, no workspace selected');
                     }
-
-                    // this.testController?.refreshTestData(resource, { forceRefresh: true });
-                    // this.testController?.refreshTestConfigs(resource, { forceRefresh: true });
                 },
             ),
         );

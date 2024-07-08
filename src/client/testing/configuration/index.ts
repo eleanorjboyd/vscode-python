@@ -109,7 +109,7 @@ export class UnitTestConfigurationService implements ITestConfigurationService {
         };
         const selectedAction = await this.appShell.showQuickPick(items, options);
         console.log(selectedAction);
-        return selectedAction ? selectedAction.label : 'Go to settings.json';
+        return selectedAction ? selectedAction.label : undefined;
     }
 
     public async enableTest(wkspace: Uri, product: UnitTestProduct): Promise<void> {
@@ -147,13 +147,14 @@ export class UnitTestConfigurationService implements ITestConfigurationService {
         if (selectedAction === 'Create a new configuration') {
             // send down configure path
             this.promptToEnableAndConfigureTestFramework(wkspace, frameworkEnum);
-        } else {
+        } else if (selectedAction === 'Go to settings.json') {
             // open settings.json
 
             // open settings.json at the "python.configs" if it exists, if not then at the top level
             // Get the path to the settings.json file
             const settingsUri = Uri.file(`${workspace.rootPath}/.vscode/settings.json`);
             if (!settingsUri) {
+                traceError('Unable to find settings.json, please create one!');
                 return;
             }
             const document = await workspace.openTextDocument(settingsUri);
