@@ -50,6 +50,7 @@ export abstract class TestConfigurationManager implements ITestConfigurationMana
         return this.testConfigSettingsService.enable(this.workspace, this.product);
     }
 
+
     protected selectTestDir(rootDir: string, subDirs: string[], customOptions: QuickPickItem[] = []): Promise<string> {
         const options = {
             ignoreFocusOut: true,

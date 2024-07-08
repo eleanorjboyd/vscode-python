@@ -1233,7 +1233,7 @@
                 {
                     "command": "python.manageConfigs",
                     "title": "%python.command.python.manageConfigs.title%",
-                    "when" : "testing.profile.context.group == 'run' "
+                    "when" : "testing.profile.context.group == 'run' || testing.profile.context.group == 'debug'"
                 }
             ],
             "commandPalette": [

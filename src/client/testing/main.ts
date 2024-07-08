@@ -80,7 +80,7 @@ export class UnitTestManagementService implements IExtensionActivationService {
         }
         this.activatedOnce = true;
         // TODO: Remove
-        this.manageTestConfigs();
+        // this.manageTestConfigs();
 
         this.registerHandlers();
         this.registerCommands();
@@ -153,10 +153,11 @@ export class UnitTestManagementService implements IExtensionActivationService {
     }
 
     private async manageTestConfigs() {
+        // EJFB here
         // show action menu (actions being, add, remove, go to...)
         const configurationService = this.serviceContainer.get<ITestConfigurationService>(ITestConfigurationService);
 
-        await configurationService.selectManageConfigAction();
+        // await configurationService.selectManageConfigAction();
     }
 
     @captureTelemetry(EventName.UNITTEST_CONFIGURE, undefined, false)
@@ -291,9 +292,32 @@ export class UnitTestManagementService implements IExtensionActivationService {
             ),
             commandManager.registerCommand(
                 constants.Commands.Test_Manage_Configs,
-                (_, _cmdSource: constants.CommandSource = constants.CommandSource.commandPalette, resource?: Uri) => {
+                async (
+                    _,
+                    _cmdSource: constants.CommandSource = constants.CommandSource.commandPalette,
+                    resource?: Uri,
+                ) => {
                     traceVerbose('Testing, manage config, triggering manage config submenu', resource);
-                    this.configureTests().ignoreErrors();
+                    // this.configureTests().ignoreErrors();
+
+                    const configurationService = this.serviceContainer.get<ITestConfigurationService>(
+                        ITestConfigurationService,
+                    );
+                    let wkspace: Uri | undefined;
+                    if (resource) {
+                        const wkspaceFolder = this.workspaceService.getWorkspaceFolder(resource);
+                        wkspace = wkspaceFolder ? wkspaceFolder.uri : undefined;
+                    } else {
+                        const appShell = this.serviceContainer.get<IApplicationShell>(IApplicationShell);
+                        wkspace = await selectTestWorkspace(appShell);
+                    }
+                    let frameworkEnum = Product.pytest;
+                    
+                    if (wkspace && frameworkEnum) {
+                        await configurationService.selectManageConfigAction(wkspace, frameworkEnum);
+                    } else {
+                        traceVerbose('Testing, manage config, no workspace selected');
+                    }
 
                     // this.testController?.refreshTestData(resource, { forceRefresh: true });
                     // this.testController?.refreshTestConfigs(resource, { forceRefresh: true });

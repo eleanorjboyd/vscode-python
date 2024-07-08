@@ -73,7 +73,7 @@ export class ConfigurationManager extends TestConfigurationManager {
             type: configType.test,
             subtype: configSubTypeList,
             args,
-            framework: frameworkType.unittest,
+            framework: frameworkType.pytest,
         };
         await this.testConfigSettingsService.updateTestArgs(wkspace.fsPath, Product.pytest, configArg);
 

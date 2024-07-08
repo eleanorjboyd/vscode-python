@@ -1,7 +1,7 @@
 'use strict';
 
 import { inject, injectable } from 'inversify';
-import { Uri } from 'vscode';
+import { Uri, workspace, window, Range, Position } from 'vscode';
 import { IApplicationShell, IWorkspaceService } from '../../common/application/types';
 import { IConfigurationService, Product } from '../../common/types';
 import { IServiceContainer } from '../../ioc/types';
@@ -35,7 +35,8 @@ export class UnitTestConfigurationService implements ITestConfigurationService {
         this.workspaceService = serviceContainer.get<IWorkspaceService>(IWorkspaceService);
     }
 
-    public selectManageConfigAction(): Promise<string | undefined> {
+    public async selectManageConfigAction(wkspace: Uri, frameworkEnum: UnitTestProduct): Promise<string | undefined> {
+        await this._manageConfigs(wkspace, frameworkEnum);
         console.log('this', this.displayTestFrameworkError);
         return Promise.resolve(undefined);
     }
@@ -89,6 +90,28 @@ export class UnitTestConfigurationService implements ITestConfigurationService {
         return selectedTestRunner ? (selectedTestRunner.product as UnitTestProduct) : undefined;
     }
 
+    public async selectManagementAction(): Promise<string | undefined> {
+        const items = [
+            {
+                label: 'Create a new configuration',
+                description: 'Create a new configuration for settings.json',
+            },
+            {
+                label: 'Go to settings.json',
+                description: 'Go directly to python.configs in settings.json to edit',
+            },
+        ];
+        const options = {
+            ignoreFocusOut: true,
+            matchOnDescription: true,
+            matchOnDetail: true,
+            placeHolder: 'Select the action to perform',
+        };
+        const selectedAction = await this.appShell.showQuickPick(items, options);
+        console.log(selectedAction);
+        return selectedAction ? selectedAction.label : 'Go to settings.json';
+    }
+
     public async enableTest(wkspace: Uri, product: UnitTestProduct): Promise<void> {
         const factory = this.serviceContainer.get<ITestConfigurationManagerFactory>(ITestConfigurationManagerFactory);
         const configMgr = factory.create(wkspace, product);
@@ -103,6 +126,10 @@ export class UnitTestConfigurationService implements ITestConfigurationService {
         await this._setupQuickRun(wkspace, frameworkEnum);
     }
 
+    // public async manageConfigs(wkspace: Uri, frameworkEnum: UnitTestProduct): Promise<void> {
+    //     await this._manageConfigs(wkspace, frameworkEnum);
+    // }
+
     private _enableTest(wkspace: Uri, configMgr: ITestConfigurationManager) {
         const pythonConfig = this.workspaceService.getConfiguration('python', wkspace);
         if (pythonConfig.get<boolean>('testing.promptToConfigure')) {
@@ -112,6 +139,43 @@ export class UnitTestConfigurationService implements ITestConfigurationService {
             () => configMgr.enable(),
             (reason) => configMgr.enable().then(() => Promise.reject(reason)),
         );
+    }
+
+    private async _manageConfigs(wkspace: Uri, frameworkEnum: UnitTestProduct): Promise<void> {
+        const selectedAction = await this.selectManagementAction();
+        console.log(selectedAction);
+        if (selectedAction === 'Create a new configuration') {
+            // send down configure path
+            this.promptToEnableAndConfigureTestFramework(wkspace, frameworkEnum);
+        } else {
+            // open settings.json
+
+            // open settings.json at the "python.configs" if it exists, if not then at the top level
+            // Get the path to the settings.json file
+            const settingsUri = Uri.file(`${workspace.rootPath}/.vscode/settings.json`);
+            if (!settingsUri) {
+                return;
+            }
+            const document = await workspace.openTextDocument(settingsUri);
+            const editor = await window.showTextDocument(document);
+            // Parse the JSON contentDEY
+            const text = document.getText();
+            // const json = JSON.parse(text);
+
+            // Check if "python.configs" exists
+            const pythonConfigsPosition = text.indexOf('"python.configs"');
+            if (pythonConfigsPosition !== -1) {
+                // If "python.configs" exists, reveal it
+                const position = document.positionAt(pythonConfigsPosition);
+                // const position = new Position(pythonConfigsPosition, 0);
+
+                editor.revealRange(new Range(position, position));
+            } else {
+                const position = new Position(0, 0);
+                editor.revealRange(new Range(position, position));
+            }
+        }
+        console.log(frameworkEnum, wkspace);
     }
 
     private async _promptToEnableAndConfigureTestFramework(

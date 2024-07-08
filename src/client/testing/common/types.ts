@@ -61,7 +61,7 @@ export interface ITestsHelper {
 
 export const ITestConfigurationService = Symbol('ITestConfigurationService');
 export interface ITestConfigurationService {
-    selectManageConfigAction(): Promise<string | undefined>;
+    selectManageConfigAction(wkspace: Uri, frameworkEnum: UnitTestProduct): Promise<string | undefined>;
     displayTestFrameworkError(wkspace: Uri): Promise<void>;
     selectTestRunner(placeHolderMessage: string): Promise<UnitTestProduct | undefined>;
     enableTest(wkspace: Uri, product: UnitTestProduct): Promise<void>;
