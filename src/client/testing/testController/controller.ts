@@ -157,12 +157,13 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
                 // if neither pytest nor unittest are enabled
                 // check to see if pytest is installed in the environment
                 const scriptPath = path.join(constants.EXTENSION_ROOT_DIR, 'python_files', 'installed_check.py');
-                const result = await execService.exec([scriptPath, 'pytest'], { throwOnStdErr: false });
-                if (result.stderr === undefined && result.stdout.trim() === '[]') {
-                    await this.configSettings.updateSetting('testing.pytestEnabled', true, workspace.uri);
-                } else {
-                    await this.configSettings.updateSetting('testing.unittestEnabled', true, workspace.uri);
-                }
+                await execService.exec([scriptPath, 'pytest'], { throwOnStdErr: false });
+                // removing the detection for now as it seems to be confusing
+                // if (result.stderr === undefined && result.stdout.trim() === '[]') {
+                //     await this.configSettings.updateSetting('testing.pytestEnabled', true, workspace.uri);
+                // } else {
+                //     await this.configSettings.updateSetting('testing.unittestEnabled', true, workspace.uri);
+                // }
             }
         });
 
