@@ -28,6 +28,7 @@ def delete_dir(path: pathlib.Path, ignore_errors=None):
     shutil.rmtree(os.fspath(path))
 
 
+
 @nox.session()
 def install_python_libs(session: nox.Session):
     requirements = [
@@ -53,6 +54,7 @@ def install_python_libs(session: nox.Session):
         )
 
     session.install("packaging")
+    session.install("debugpy")
 
     # Download get-pip script
     session.run(
