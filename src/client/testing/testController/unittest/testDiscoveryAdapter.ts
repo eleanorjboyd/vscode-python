@@ -63,11 +63,8 @@ export class UnittestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
             outChannel: this.outputChannel,
         };
 
-        try {
-            await this.runDiscovery(uri, options, name, cwd, executionFactory);
-        } finally {
-            // none
-        }
+        await this.runDiscovery(uri, options, name, cwd, executionFactory);
+
         // placeholder until after the rewrite is adopted
         // TODO: remove after adoption.
         const discoveryPayload: DiscoveredTestPayload = { cwd, status: 'success' };

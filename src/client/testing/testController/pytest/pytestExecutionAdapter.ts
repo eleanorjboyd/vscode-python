@@ -232,9 +232,6 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
                                 runInstance,
                             );
                         }
-                        // this doesn't work, it instead directs us to the noop one which is defined first
-                        // potentially this is due to the server already being close, if this is the case?
-                        console.log('right before serverDispose');
                     }
 
                     // deferredTillEOT is resolved when all data sent on stdout and stderr is received, close event is only called when this occurs
