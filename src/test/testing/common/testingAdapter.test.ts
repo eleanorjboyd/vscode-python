@@ -84,6 +84,7 @@ suite('End to End Tests: test adapters', () => {
         // create symlink for specific symlink test
         const target = rootPathSmallWorkspace;
         const dest = rootPathDiscoverySymlink;
+        serviceContainer = (await initialize()).serviceContainer;
         try {
             fs.symlink(target, dest, 'dir', (err) => {
                 if (err) {
@@ -105,7 +106,6 @@ suite('End to End Tests: test adapters', () => {
     });
 
     setup(async () => {
-        serviceContainer = (await initialize()).serviceContainer;
         getPixiStub = sinon.stub(pixi, 'getPixi');
         getPixiStub.resolves(undefined);
 
@@ -1143,7 +1143,6 @@ suite('End to End Tests: test adapters', () => {
         let callCount = 0;
         let failureOccurred = false;
         let failureMsg = '';
-        console.log('EFB: beginning function');
         resultResolver._resolveExecution = async (data, _token?) => {
             // do the following asserts for each time resolveExecution is called, should be called once per test.
             console.log(`pytest execution adapter seg fault error handling \n  ${JSON.stringify(data)}`);

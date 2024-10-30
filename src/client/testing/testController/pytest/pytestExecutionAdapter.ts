@@ -108,10 +108,12 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
         const settings = this.configSettings.getSettings(uri);
         const { pytestArgs } = settings.testing;
         const cwd = settings.testing.cwd && settings.testing.cwd.length > 0 ? settings.testing.cwd : uri.fsPath;
+        console.log('EJFB, runTestNew');
         // get and edit env vars
         const mutableEnv = {
             ...(await this.envVarsService?.getEnvironmentVariables(uri)),
         };
+        console.log('EJFB after mutableEnv');
         // get python path from mutable env, it contains process.env as well
         const pythonPathParts: string[] = mutableEnv.PYTHONPATH?.split(path.delimiter) ?? [];
         const pythonPathCommand = [fullPluginPath, ...pythonPathParts].join(path.delimiter);
@@ -121,7 +123,7 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
             mutableEnv.COVERAGE_ENABLED = 'True';
         }
         const debugBool = profileKind && profileKind === TestRunProfileKind.Debug;
-
+        console.log('EJFB after debug Bool');
         // Create the Python environment in which to execute the command.
         const creationOptions: ExecutionFactoryCreateWithEnvironmentOptions = {
             allowEnvironmentFetchExceptions: false,
@@ -129,7 +131,9 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
             interpreter,
         };
         // need to check what will happen in the exec service is NOT defined and is null
+        console.log('EJFB, before exec service');
         const execService = await executionFactory?.createActivatedEnvironment(creationOptions);
+        console.log('EJFB, after exec service');
         try {
             // Remove positional test folders and files, we will add as needed per node
             let testArgs = removePositionalFoldersAndFiles(pytestArgs);
@@ -157,7 +161,7 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
                 env: mutableEnv,
                 token: runInstance?.token,
             };
-
+            console.log('EJFB, before debug check');
             if (debugBool) {
                 const launchOptions: LaunchOptions = {
                     cwd,
@@ -181,6 +185,7 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
 
                 let resultProc: ChildProcess | undefined;
 
+                console.log('EJFB, before run instance creation');
                 runInstance?.token.onCancellationRequested(() => {
                     traceInfo(`Test run cancelled, killing pytest subprocess for workspace ${uri.fsPath}`);
                     // if the resultProc exists just call kill on it which will handle resolving the ExecClose deferred, otherwise resolve the deferred here.
@@ -192,7 +197,9 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
                     }
                 });
 
+                console.log('EJFB, before exec observable');
                 const result = execService?.execObservable(runArgs, spawnOptions);
+                console.log('EJFB, after exec observable');
                 resultProc = result?.proc;
 
                 // Take all output from the subprocess and add it to the test output channel. This will be the pytest output.
@@ -219,6 +226,7 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
 
                 result?.proc?.on('close', (code, signal) => {
                     traceVerbose('Test run finished, subprocess closed.');
+                    console.log('EJFB, process closed');
                     // if the child has testIds then this is a run request
                     // if the child process exited with a non-zero exit code, then we need to send the error payload.
                     if (code !== 0 && testIds) {
@@ -239,6 +247,7 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
                     deferredTillExecClose.resolve();
                     serverCancel.cancel();
                 });
+                console.log('EJFB, await deferredTillExecClose');
                 await deferredTillExecClose.promise;
             }
         } catch (ex) {
@@ -251,6 +260,7 @@ export class PytestTestExecutionAdapter implements ITestExecutionAdapter {
             status: 'success',
             error: '',
         };
+        console.log('EJFB, returning execution payload');
         return executionPayload;
     }
 }
