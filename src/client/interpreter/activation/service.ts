@@ -144,17 +144,20 @@ export class EnvironmentActivationService implements IEnvironmentActivationServi
         allowExceptions?: boolean,
         shell?: string,
     ): Promise<NodeJS.ProcessEnv | undefined> {
+        console.log('EJFB 2.1');
         const stopWatch = new StopWatch();
         // Cache key = resource + interpreter.
         const workspaceKey = this.workspace.getWorkspaceFolderIdentifier(resource);
+        console.log('EJFB 2.2');
         interpreter = interpreter ?? (await this.interpreterService.getActiveInterpreter(resource));
+        console.log('EJFB 2.3');
         const interpreterPath = this.platform.isWindows ? interpreter?.path.toLowerCase() : interpreter?.path;
         const cacheKey = `${workspaceKey}_${interpreterPath}_${shell}`;
-
+        console.log('EJFB 2.4');
         if (this.activatedEnvVariablesCache.get(cacheKey)?.hasData) {
             return this.activatedEnvVariablesCache.get(cacheKey)!.data;
         }
-
+        console.log('EJFB 2.5');
         // Cache only if successful, else keep trying & failing if necessary.
         const memCache = new InMemoryCache<NodeJS.ProcessEnv | undefined>(CACHE_DURATION);
         return this.getActivatedEnvironmentVariablesImpl(resource, interpreter, allowExceptions, shell)
@@ -166,9 +169,11 @@ export class EnvironmentActivationService implements IEnvironmentActivationServi
                     stopWatch.elapsedTime,
                     { failed: false },
                 );
+                console.log('EJFB 2.6');
                 return vars;
             })
             .catch((ex) => {
+                console.log('EJFB 2.7');
                 sendTelemetryEvent(
                     EventName.PYTHON_INTERPRETER_ACTIVATION_ENVIRONMENT_VARIABLES,
                     stopWatch.elapsedTime,
