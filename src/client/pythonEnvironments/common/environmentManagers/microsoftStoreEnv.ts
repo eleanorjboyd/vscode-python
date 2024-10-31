@@ -104,19 +104,26 @@ export async function isStorePythonInstalled(interpreterPath?: string): Promise<
  */
 
 export async function isMicrosoftStoreEnvironment(interpreterPath: string): Promise<boolean> {
+    console.log('EJFB 6.1');
     if (await isStorePythonInstalled(interpreterPath)) {
+        console.log('EJFB 6.2');
         const pythonPathToCompare = path.normalize(interpreterPath).toUpperCase();
         const localAppDataStorePath = path.normalize(getMicrosoftStoreAppsRoot()).toUpperCase();
+        console.log('EJFB 6.3');
         if (pythonPathToCompare.includes(localAppDataStorePath)) {
+            console.log('EJFB 6.4');
             return true;
         }
+        console.log('EJFB 6.5');
 
         // Program Files store path is a forbidden path. Only admins and system has access this path.
         // We should never have to look at this path or even execute python from this path.
         if (isForbiddenStorePath(pythonPathToCompare)) {
+            console.log('EJFB 6.6');
             traceWarn('isMicrosoftStoreEnvironment called with Program Files store path.');
             return true;
         }
     }
+    console.log('EJFB 6.7');
     return false;
 }
