@@ -218,11 +218,14 @@ export class InterpreterService implements Disposable, IInterpreterService {
 
     public async getActiveInterpreter(resource?: Uri): Promise<PythonEnvironment | undefined> {
         const activatedEnvLaunch = this.serviceContainer.get<IActivatedEnvironmentLaunch>(IActivatedEnvironmentLaunch);
+        console.log('EJFB 3.1');
         let path = await activatedEnvLaunch.selectIfLaunchedViaActivatedEnv(true);
         // This is being set as interpreter in background, after which it'll show up in `.pythonPath` config.
         // However we need not wait on the update to take place, as we can use the value directly.
+        console.log('EJFB 3.2');
         if (!path) {
             path = this.configService.getSettings(resource).pythonPath;
+            console.log('EJFB 3.3');
             if (pathUtils.basename(path) === path) {
                 // Value can be `python`, `python3`, `python3.9` etc.
                 // Note the following triggers autoselection if no interpreter is explictly
@@ -231,14 +234,17 @@ export class InterpreterService implements Disposable, IInterpreterService {
                 const pythonExecutionFactory = this.serviceContainer.tryGet<IPythonExecutionFactory>(
                     IPythonExecutionFactory,
                 );
+                console.log('EJFB 3.4');
                 const pythonExecutionService = pythonExecutionFactory
                     ? await pythonExecutionFactory.create({ resource })
                     : undefined;
+                console.log('EJFB 3.5');
                 const fullyQualifiedPath = pythonExecutionService
                     ? await pythonExecutionService.getExecutablePath().catch((ex) => {
                           traceError(ex);
                       })
                     : undefined;
+                console.log('EJFB 3.6');
                 // Python path is invalid or python isn't installed.
                 if (!fullyQualifiedPath) {
                     return undefined;
@@ -246,6 +252,7 @@ export class InterpreterService implements Disposable, IInterpreterService {
                 path = fullyQualifiedPath;
             }
         }
+        console.log('EJFB 3.7');
         return this.getInterpreterDetails(path);
     }
 
