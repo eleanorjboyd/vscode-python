@@ -104,11 +104,13 @@ export class PythonExecutionFactory implements IPythonExecutionFactory {
     public async createActivatedEnvironment(
         options: ExecutionFactoryCreateWithEnvironmentOptions,
     ): Promise<IPythonExecutionService> {
+        console.log('EJFB, inside createAE');
         const envVars = await this.activationHelper.getActivatedEnvironmentVariables(
             options.resource,
             options.interpreter,
             options.allowEnvironmentFetchExceptions,
         );
+        console.log('EJFB, 1');
         const hasEnvVars = envVars && Object.keys(envVars).length > 0;
         sendTelemetryEvent(EventName.PYTHON_INTERPRETER_ACTIVATION_ENVIRONMENT_VARIABLES, undefined, { hasEnvVars });
         if (!hasEnvVars) {
@@ -117,26 +119,31 @@ export class PythonExecutionFactory implements IPythonExecutionFactory {
                 pythonPath: options.interpreter ? options.interpreter.path : undefined,
             });
         }
+        console.log('EJFB,2');
         const pythonPath = options.interpreter
             ? options.interpreter.path
             : this.configService.getSettings(options.resource).pythonPath;
         const processService: IProcessService = new ProcessService({ ...envVars });
+        console.log('EJFB,2.5');
         processService.on('exec', this.logger.logProcess.bind(this.logger));
         this.disposables.push(processService);
-
+        console.log('EJFB, 3');
         if (await getPixi()) {
             const pixiExecutionService = await this.createPixiExecutionService(pythonPath, processService);
+            console.log('EJFB, 3.5');
             if (pixiExecutionService) {
                 return pixiExecutionService;
             }
         }
-
+        console.log('EJFB, 4');
         const condaExecutionService = await this.createCondaExecutionService(pythonPath, processService);
+        console.log('EJFB,4.5');
         if (condaExecutionService) {
             return condaExecutionService;
         }
-
+        console.log('EJFB, a5');
         const env = createPythonEnv(pythonPath, processService, this.fileSystem);
+        console.log('EJFB,5.5');
         return createPythonService(processService, env);
     }
 
