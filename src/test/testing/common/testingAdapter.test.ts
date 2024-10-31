@@ -112,6 +112,7 @@ suite('End to End Tests: test adapters', () => {
         // create objects that were injected
         configService = serviceContainer.get<IConfigurationService>(IConfigurationService);
         pythonExecFactory = serviceContainer.get<IPythonExecutionFactory>(IPythonExecutionFactory);
+        pythonExecFactory.createCondaExecutionService = async () => undefined;
         testController = serviceContainer.get<TestController>(ITestController);
         envVarsService = serviceContainer.get<IEnvironmentVariablesProvider>(IEnvironmentVariablesProvider);
 
