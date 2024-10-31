@@ -51,53 +51,60 @@ export class PythonExecutionFactory implements IPythonExecutionFactory {
     }
 
     public async create(options: ExecutionFactoryCreationOptions): Promise<IPythonExecutionService> {
+        console.log('EJFB, 4.1');
         let { pythonPath } = options;
         if (!pythonPath || pythonPath === 'python') {
             const activatedEnvLaunch = this.serviceContainer.get<IActivatedEnvironmentLaunch>(
                 IActivatedEnvironmentLaunch,
             );
+            console.log('EJFB, 4.2');
             await activatedEnvLaunch.selectIfLaunchedViaActivatedEnv();
             // If python path wasn't passed in, we need to auto select it and then read it
             // from the configuration.
             const interpreterPath = this.interpreterPathExpHelper.get(options.resource);
+            console.log('EJFB, 4.3');
             if (!interpreterPath || interpreterPath === 'python') {
                 // Block on autoselection if no interpreter selected.
                 // Note autoselection blocks on discovery, so we do not want discovery component
                 // to block on this code. Discovery component should 'options.pythonPath' before
                 // calling into this, so this scenario should not happen. But in case consumer
                 // makes such an error. So break the loop via timeout and log error.
+                console.log('EJFB, 4.4');
                 const success = await Promise.race([
                     this.autoSelection.autoSelectInterpreter(options.resource).then(() => true),
                     sleep(50000).then(() => false),
                 ]);
+                console.log('EJFB, 4.5');
                 if (!success) {
                     traceError(
                         'Autoselection timeout out, this is likely a issue with how consumer called execution factory API. Using default python to execute.',
                     );
                 }
             }
+            console.log('EJFB, 4.6');
             pythonPath = this.configService.getSettings(options.resource).pythonPath;
         }
+        console.log('EJFB, 4.7');
         const processService: IProcessService = await this.processServiceFactory.create(options.resource);
-
+        console.log('EJFB, 4.8');
         if (await getPixi()) {
             const pixiExecutionService = await this.createPixiExecutionService(pythonPath, processService);
             if (pixiExecutionService) {
                 return pixiExecutionService;
             }
         }
-
+        console.log('EJFB, 4.9');
         const condaExecutionService = await this.createCondaExecutionService(pythonPath, processService);
         if (condaExecutionService) {
             return condaExecutionService;
         }
-
+        console.log('EJFB, 4.10');
         const windowsStoreInterpreterCheck = this.pyenvs.isMicrosoftStoreInterpreter.bind(this.pyenvs);
-
+        console.log('EJFB, 4.11');
         const env = (await windowsStoreInterpreterCheck(pythonPath))
             ? createMicrosoftStoreEnv(pythonPath, processService)
             : createPythonEnv(pythonPath, processService, this.fileSystem);
-
+        console.log('EJFB, 4.12');
         return createPythonService(processService, env);
     }
 
