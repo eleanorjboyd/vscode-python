@@ -158,15 +158,20 @@ export class PythonExecutionFactory implements IPythonExecutionFactory {
         pythonPath: string,
         processService: IProcessService,
     ): Promise<IPythonExecutionService | undefined> {
+        console.log('EJFB, inside createCES');
         const condaLocatorService = this.serviceContainer.get<IComponentAdapter>(IComponentAdapter);
+        console.log('EJFB, 5.1');
         const [condaEnvironment] = await Promise.all([condaLocatorService.getCondaEnvironment(pythonPath)]);
+        console.log('EJFB, 5.2');
         if (!condaEnvironment) {
             return undefined;
         }
+        console.log('EJFB,5.3');
         const env = await createCondaEnv(condaEnvironment, processService, this.fileSystem);
         if (!env) {
             return undefined;
         }
+        console.log('EJFB, 5.4');
         return createPythonService(processService, env);
     }
 
