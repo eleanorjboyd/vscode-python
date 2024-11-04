@@ -102,7 +102,7 @@ export class PythonExecutionFactory implements IPythonExecutionFactory {
         const windowsStoreInterpreterCheck = this.pyenvs.isMicrosoftStoreInterpreter.bind(this.pyenvs);
         console.log('EJFB, 4.11', pythonPath);
         const a = await windowsStoreInterpreterCheck(pythonPath);
-        console.log('EJFB, 4.11.5', a, processService, this.fileSystem);
+        console.log('EJFB, 4.11.5', a, processService);
         const env = a
             ? createMicrosoftStoreEnv(pythonPath, processService)
             : createPythonEnv(pythonPath, processService, this.fileSystem);

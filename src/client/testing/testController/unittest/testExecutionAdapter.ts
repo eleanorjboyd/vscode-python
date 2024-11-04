@@ -150,11 +150,13 @@ export class UnittestTestExecutionAdapter implements ITestExecutionAdapter {
             resource: options.workspaceFolder,
         };
         const execService = await executionFactory?.createActivatedEnvironment(creationOptions);
+        console.log('EJFB 6.0');
         const args = [options.command.script].concat(options.command.args);
 
         if (options.outChannel) {
             options.outChannel.appendLine(`python ${args.join(' ')}`);
         }
+        console.log('EJFB 6.1');
 
         try {
             if (options.profileKind && options.profileKind === TestRunProfileKind.Debug) {
@@ -167,7 +169,7 @@ export class UnittestTestExecutionAdapter implements ITestExecutionAdapter {
                     pytestPort: resultNamedPipeName, // change this from pytest
                 };
                 traceInfo(`Running DEBUG unittest for workspace ${options.cwd} with arguments: ${args}\r\n`);
-
+                console.log('EJFB 6.2');
                 if (debugLauncher === undefined) {
                     traceError('Debug launcher is not defined');
                     throw new Error('Debug launcher is not defined');
@@ -193,7 +195,7 @@ export class UnittestTestExecutionAdapter implements ITestExecutionAdapter {
                         serverCancel.cancel();
                     }
                 });
-
+                console.log('EJFB 6.3');
                 const result = execService?.execObservable(args, spawnOptions);
                 resultProc = result?.proc;
 
@@ -211,7 +213,7 @@ export class UnittestTestExecutionAdapter implements ITestExecutionAdapter {
                     runInstance?.appendOutput(`${out}`);
                     spawnOptions?.outputChannel?.append(out);
                 });
-
+                console.log('EJFB 6.4');
                 result?.proc?.on('exit', (code, signal) => {
                     // if the child has testIds then this is a run request
                     spawnOptions?.outputChannel?.append(MESSAGE_ON_TESTING_OUTPUT_MOVE);
@@ -228,6 +230,7 @@ export class UnittestTestExecutionAdapter implements ITestExecutionAdapter {
                             );
                         }
                     }
+                    console.log('EJFB 6.5');
                     deferredTillExecClose.resolve();
                     serverCancel.cancel();
                 });
