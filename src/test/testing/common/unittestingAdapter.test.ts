@@ -22,7 +22,7 @@ import { IEnvironmentVariablesProvider } from '../../../client/common/variables/
 import { createTypeMoq } from '../../mocks/helper';
 import * as pixi from '../../../client/pythonEnvironments/common/environmentManagers/pixi';
 
-suite('End to End Tests: test adapters', () => {
+suite('End to End Tests: unittest adapters', () => {
     let resultResolver: ITestResultResolver;
     let pythonExecFactory: IPythonExecutionFactory;
     let configService: IConfigurationService;
