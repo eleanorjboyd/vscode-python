@@ -11,8 +11,8 @@ class TestSegmentationFault(unittest.TestCase):
         ctypes.string_at(0)  # Dereference a NULL pointer
 
     def test_segfault(self):
-        self.cause_segfault()
         assert True
+        self.cause_segfault()
 
 
 if __name__ == "__main__":

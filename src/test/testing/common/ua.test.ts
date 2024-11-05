@@ -5,14 +5,13 @@ import { TestController, TestRun, TestRunProfileKind, Uri } from 'vscode';
 import * as typeMoq from 'typemoq';
 import * as path from 'path';
 import * as assert from 'assert';
-import * as fs from 'fs';
 import * as sinon from 'sinon';
 import { ITestController, ITestResultResolver } from '../../../client/testing/testController/common/types';
 import { IPythonExecutionFactory } from '../../../client/common/process/types';
 import { IConfigurationService, ITestOutputChannel } from '../../../client/common/types';
 import { IServiceContainer } from '../../../client/ioc/types';
 import { EXTENSION_ROOT_DIR_FOR_TESTS, initialize } from '../../initialize';
-import { traceError, traceLog } from '../../../client/logging';
+import {traceLog } from '../../../client/logging';
 import { UnittestTestExecutionAdapter } from '../../../client/testing/testController/unittest/testExecutionAdapter';
 import { PythonResultResolver } from '../../../client/testing/testController/common/resultResolver';
 import { TestProvider } from '../../../client/testing/types';
@@ -32,60 +31,14 @@ suite('End to End Tests: the broken one', () => {
     let testController: TestController;
     let getPixiStub: sinon.SinonStub;
     const unittestProvider: TestProvider = UNITTEST_PROVIDER;
-    const rootPathSmallWorkspace = path.join(
-        EXTENSION_ROOT_DIR_FOR_TESTS,
-        'src',
-        'testTestingRootWkspc',
-        'smallWorkspace',
-    );
-    // const rootPathLargeWorkspace = path.join(
-    //     EXTENSION_ROOT_DIR_FOR_TESTS,
-    //     'src',
-    //     'testTestingRootWkspc',
-    //     'largeWorkspace',
-    // );
     const rootPathErrorWorkspace = path.join(
         EXTENSION_ROOT_DIR_FOR_TESTS,
         'src',
         'testTestingRootWkspc',
         'errorWorkspace',
     );
-    const rootPathDiscoverySymlink = path.join(
-        EXTENSION_ROOT_DIR_FOR_TESTS,
-        'src',
-        'testTestingRootWkspc',
-        'symlinkWorkspace',
-    );
-    const nestedTarget = path.join(EXTENSION_ROOT_DIR_FOR_TESTS, 'src', 'testTestingRootWkspc', 'target workspace');
-    const nestedSymlink = path.join(
-        EXTENSION_ROOT_DIR_FOR_TESTS,
-        'src',
-        'testTestingRootWkspc',
-        'symlink_parent-folder',
-    );
     suiteSetup(async () => {
-        // create symlink for specific symlink test
-        const target = rootPathSmallWorkspace;
-        const dest = rootPathDiscoverySymlink;
         serviceContainer = (await initialize()).serviceContainer;
-        try {
-            fs.symlink(target, dest, 'dir', (err) => {
-                if (err) {
-                    traceError(err);
-                } else {
-                    traceLog('Symlink created successfully for regular symlink end to end tests.');
-                }
-            });
-            fs.symlink(nestedTarget, nestedSymlink, 'dir', (err) => {
-                if (err) {
-                    traceError(err);
-                } else {
-                    traceLog('Symlink created successfully for nested symlink end to end tests.');
-                }
-            });
-        } catch (err) {
-            traceError(err);
-        }
     });
 
     setup(async () => {
@@ -123,31 +76,9 @@ suite('End to End Tests: the broken one', () => {
         sinon.restore();
     });
     suiteTeardown(async () => {
-        // remove symlink
-        const dest = rootPathDiscoverySymlink;
-        if (fs.existsSync(dest)) {
-            fs.unlink(dest, (err) => {
-                if (err) {
-                    traceError(err);
-                } else {
-                    traceLog('Symlink removed successfully after tests, rootPathDiscoverySymlink.');
-                }
-            });
-        } else {
-            traceLog('Symlink was not found to remove after tests, exiting successfully, rootPathDiscoverySymlink.');
-        }
-
-        if (fs.existsSync(nestedSymlink)) {
-            fs.unlink(nestedSymlink, (err) => {
-                if (err) {
-                    traceError(err);
-                } else {
-                    traceLog('Symlink removed successfully after tests, nestedSymlink.');
-                }
-            });
-        } else {
-            traceLog('Symlink was not found to remove after tests, exiting successfully, nestedSymlink.');
-        }
+        sinon.restore();
+        sinon.reset();
+        sinon.resetBehavior();
     });
     test('unittest execution adapter seg fault error handling', async () => {
         resultResolver = new PythonResultResolver(testController, unittestProvider, workspaceUri);
