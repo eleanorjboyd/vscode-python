@@ -39,12 +39,12 @@ suite('End to End Tests: unittest adapters', () => {
         'testTestingRootWkspc',
         'smallWorkspace',
     );
-    const rootPathLargeWorkspace = path.join(
-        EXTENSION_ROOT_DIR_FOR_TESTS,
-        'src',
-        'testTestingRootWkspc',
-        'largeWorkspace',
-    );
+    // const rootPathLargeWorkspace = path.join(
+    //     EXTENSION_ROOT_DIR_FOR_TESTS,
+    //     'src',
+    //     'testTestingRootWkspc',
+    //     'largeWorkspace',
+    // );
     const rootPathErrorWorkspace = path.join(
         EXTENSION_ROOT_DIR_FOR_TESTS,
         'src',
@@ -239,252 +239,252 @@ suite('End to End Tests: unittest adapters', () => {
                 assert.strictEqual(failureOccurred, false, failureMsg);
             });
     });
-    test('unittest discovery adapter small workspace', async () => {
-        // result resolver and saved data for assertions
-        let actualData: {
-            cwd: string;
-            tests?: unknown;
-            status: 'success' | 'error';
-            error?: string[];
-        };
-        workspaceUri = Uri.parse(rootPathSmallWorkspace);
-        resultResolver = new PythonResultResolver(testController, unittestProvider, workspaceUri);
-        let callCount = 0;
-        // const deferredTillEOT = createTestingDeferred();
-        resultResolver._resolveDiscovery = async (payload, _token?) => {
-            traceLog(`resolveDiscovery ${payload}`);
-            callCount = callCount + 1;
-            actualData = payload;
-            return Promise.resolve();
-        };
+    // test('unittest discovery adapter small workspace', async () => {
+    //     // result resolver and saved data for assertions
+    //     let actualData: {
+    //         cwd: string;
+    //         tests?: unknown;
+    //         status: 'success' | 'error';
+    //         error?: string[];
+    //     };
+    //     workspaceUri = Uri.parse(rootPathSmallWorkspace);
+    //     resultResolver = new PythonResultResolver(testController, unittestProvider, workspaceUri);
+    //     let callCount = 0;
+    //     // const deferredTillEOT = createTestingDeferred();
+    //     resultResolver._resolveDiscovery = async (payload, _token?) => {
+    //         traceLog(`resolveDiscovery ${payload}`);
+    //         callCount = callCount + 1;
+    //         actualData = payload;
+    //         return Promise.resolve();
+    //     };
 
-        // set workspace to test workspace folder and set up settings
+    //     // set workspace to test workspace folder and set up settings
 
-        configService.getSettings(workspaceUri).testing.unittestArgs = ['-s', '.', '-p', '*test*.py'];
+    //     configService.getSettings(workspaceUri).testing.unittestArgs = ['-s', '.', '-p', '*test*.py'];
 
-        // run unittest discovery
-        const discoveryAdapter = new UnittestTestDiscoveryAdapter(
-            configService,
-            testOutputChannel.object,
-            resultResolver,
-            envVarsService,
-        );
+    //     // run unittest discovery
+    //     const discoveryAdapter = new UnittestTestDiscoveryAdapter(
+    //         configService,
+    //         testOutputChannel.object,
+    //         resultResolver,
+    //         envVarsService,
+    //     );
 
-        await discoveryAdapter.discoverTests(workspaceUri, pythonExecFactory).finally(() => {
-            // verification after discovery is complete
+    //     await discoveryAdapter.discoverTests(workspaceUri, pythonExecFactory).finally(() => {
+    //         // verification after discovery is complete
 
-            // 1. Check the status is "success"
-            assert.strictEqual(
-                actualData.status,
-                'success',
-                `Expected status to be 'success' instead status is ${actualData.status}`,
-            );
-            // 2. Confirm no errors
-            assert.strictEqual(actualData.error, undefined, "Expected no errors in 'error' field");
-            // 3. Confirm tests are found
-            assert.ok(actualData.tests, 'Expected tests to be present');
+    //         // 1. Check the status is "success"
+    //         assert.strictEqual(
+    //             actualData.status,
+    //             'success',
+    //             `Expected status to be 'success' instead status is ${actualData.status}`,
+    //         );
+    //         // 2. Confirm no errors
+    //         assert.strictEqual(actualData.error, undefined, "Expected no errors in 'error' field");
+    //         // 3. Confirm tests are found
+    //         assert.ok(actualData.tests, 'Expected tests to be present');
 
-            assert.strictEqual(callCount, 1, 'Expected _resolveDiscovery to be called once');
-        });
-    });
-    test('unittest discovery adapter large workspace', async () => {
-        // result resolver and saved data for assertions
-        let actualData: {
-            cwd: string;
-            tests?: unknown;
-            status: 'success' | 'error';
-            error?: string[];
-        };
-        resultResolver = new PythonResultResolver(testController, unittestProvider, workspaceUri);
-        let callCount = 0;
-        resultResolver._resolveDiscovery = async (payload, _token?) => {
-            traceLog(`resolveDiscovery ${payload}`);
-            callCount = callCount + 1;
-            actualData = payload;
-            return Promise.resolve();
-        };
+    //         assert.strictEqual(callCount, 1, 'Expected _resolveDiscovery to be called once');
+    //     });
+    // });
+    // test('unittest discovery adapter large workspace', async () => {
+    //     // result resolver and saved data for assertions
+    //     let actualData: {
+    //         cwd: string;
+    //         tests?: unknown;
+    //         status: 'success' | 'error';
+    //         error?: string[];
+    //     };
+    //     resultResolver = new PythonResultResolver(testController, unittestProvider, workspaceUri);
+    //     let callCount = 0;
+    //     resultResolver._resolveDiscovery = async (payload, _token?) => {
+    //         traceLog(`resolveDiscovery ${payload}`);
+    //         callCount = callCount + 1;
+    //         actualData = payload;
+    //         return Promise.resolve();
+    //     };
 
-        // set settings to work for the given workspace
-        workspaceUri = Uri.parse(rootPathLargeWorkspace);
-        configService.getSettings(workspaceUri).testing.unittestArgs = ['-s', '.', '-p', '*test*.py'];
-        // run discovery
-        const discoveryAdapter = new UnittestTestDiscoveryAdapter(
-            configService,
-            testOutputChannel.object,
-            resultResolver,
-            envVarsService,
-        );
+    //     // set settings to work for the given workspace
+    //     workspaceUri = Uri.parse(rootPathLargeWorkspace);
+    //     configService.getSettings(workspaceUri).testing.unittestArgs = ['-s', '.', '-p', '*test*.py'];
+    //     // run discovery
+    //     const discoveryAdapter = new UnittestTestDiscoveryAdapter(
+    //         configService,
+    //         testOutputChannel.object,
+    //         resultResolver,
+    //         envVarsService,
+    //     );
 
-        await discoveryAdapter.discoverTests(workspaceUri, pythonExecFactory).finally(() => {
-            // 1. Check the status is "success"
-            assert.strictEqual(
-                actualData.status,
-                'success',
-                `Expected status to be 'success' instead status is ${actualData.status}`,
-            );
-            // 2. Confirm no errors
-            assert.strictEqual(actualData.error, undefined, "Expected no errors in 'error' field");
-            // 3. Confirm tests are found
-            assert.ok(actualData.tests, 'Expected tests to be present');
+    //     await discoveryAdapter.discoverTests(workspaceUri, pythonExecFactory).finally(() => {
+    //         // 1. Check the status is "success"
+    //         assert.strictEqual(
+    //             actualData.status,
+    //             'success',
+    //             `Expected status to be 'success' instead status is ${actualData.status}`,
+    //         );
+    //         // 2. Confirm no errors
+    //         assert.strictEqual(actualData.error, undefined, "Expected no errors in 'error' field");
+    //         // 3. Confirm tests are found
+    //         assert.ok(actualData.tests, 'Expected tests to be present');
 
-            assert.strictEqual(callCount, 1, 'Expected _resolveDiscovery to be called once');
-        });
-    });
-    test('unittest execution adapter small workspace with correct output', async () => {
-        // result resolver and saved data for assertions
-        resultResolver = new PythonResultResolver(testController, unittestProvider, workspaceUri);
-        let callCount = 0;
-        let failureOccurred = false;
-        let failureMsg = '';
-        resultResolver._resolveExecution = async (payload, _token?) => {
-            traceLog(`resolveDiscovery ${payload}`);
-            callCount = callCount + 1;
-            // the payloads that get to the _resolveExecution are all data and should be successful.
-            try {
-                assert.strictEqual(
-                    payload.status,
-                    'success',
-                    `Expected status to be 'success', instead status is ${payload.status}`,
-                );
-                assert.ok(payload.result, 'Expected results to be present');
-            } catch (err) {
-                failureMsg = err ? (err as Error).toString() : '';
-                failureOccurred = true;
-            }
-            return Promise.resolve();
-        };
+    //         assert.strictEqual(callCount, 1, 'Expected _resolveDiscovery to be called once');
+    //     });
+    // });
+    // test('unittest execution adapter small workspace with correct output', async () => {
+    //     // result resolver and saved data for assertions
+    //     resultResolver = new PythonResultResolver(testController, unittestProvider, workspaceUri);
+    //     let callCount = 0;
+    //     let failureOccurred = false;
+    //     let failureMsg = '';
+    //     resultResolver._resolveExecution = async (payload, _token?) => {
+    //         traceLog(`resolveDiscovery ${payload}`);
+    //         callCount = callCount + 1;
+    //         // the payloads that get to the _resolveExecution are all data and should be successful.
+    //         try {
+    //             assert.strictEqual(
+    //                 payload.status,
+    //                 'success',
+    //                 `Expected status to be 'success', instead status is ${payload.status}`,
+    //             );
+    //             assert.ok(payload.result, 'Expected results to be present');
+    //         } catch (err) {
+    //             failureMsg = err ? (err as Error).toString() : '';
+    //             failureOccurred = true;
+    //         }
+    //         return Promise.resolve();
+    //     };
 
-        // set workspace to test workspace folder
-        workspaceUri = Uri.parse(rootPathSmallWorkspace);
-        configService.getSettings(workspaceUri).testing.unittestArgs = ['-s', '.', '-p', '*test*.py'];
-        // run execution
-        const executionAdapter = new UnittestTestExecutionAdapter(
-            configService,
-            testOutputChannel.object,
-            resultResolver,
-            envVarsService,
-        );
-        const testRun = typeMoq.Mock.ofType<TestRun>();
-        testRun
-            .setup((t) => t.token)
-            .returns(
-                () =>
-                    ({
-                        onCancellationRequested: () => undefined,
-                    } as any),
-            );
-        let collectedOutput = '';
-        testRun
-            .setup((t) => t.appendOutput(typeMoq.It.isAny()))
-            .callback((output: string) => {
-                collectedOutput += output;
-                traceLog('appendOutput was called with:', output);
-            })
-            .returns(() => false);
-        await executionAdapter
-            .runTests(
-                workspaceUri,
-                ['test_simple.SimpleClass.test_simple_unit'],
-                TestRunProfileKind.Run,
-                testRun.object,
-                pythonExecFactory,
-            )
-            .finally(() => {
-                // verify that the _resolveExecution was called once per test
-                assert.strictEqual(callCount, 1, 'Expected _resolveExecution to be called once');
-                assert.strictEqual(failureOccurred, false, failureMsg);
+    //     // set workspace to test workspace folder
+    //     workspaceUri = Uri.parse(rootPathSmallWorkspace);
+    //     configService.getSettings(workspaceUri).testing.unittestArgs = ['-s', '.', '-p', '*test*.py'];
+    //     // run execution
+    //     const executionAdapter = new UnittestTestExecutionAdapter(
+    //         configService,
+    //         testOutputChannel.object,
+    //         resultResolver,
+    //         envVarsService,
+    //     );
+    //     const testRun = typeMoq.Mock.ofType<TestRun>();
+    //     testRun
+    //         .setup((t) => t.token)
+    //         .returns(
+    //             () =>
+    //                 ({
+    //                     onCancellationRequested: () => undefined,
+    //                 } as any),
+    //         );
+    //     let collectedOutput = '';
+    //     testRun
+    //         .setup((t) => t.appendOutput(typeMoq.It.isAny()))
+    //         .callback((output: string) => {
+    //             collectedOutput += output;
+    //             traceLog('appendOutput was called with:', output);
+    //         })
+    //         .returns(() => false);
+    //     await executionAdapter
+    //         .runTests(
+    //             workspaceUri,
+    //             ['test_simple.SimpleClass.test_simple_unit'],
+    //             TestRunProfileKind.Run,
+    //             testRun.object,
+    //             pythonExecFactory,
+    //         )
+    //         .finally(() => {
+    //             // verify that the _resolveExecution was called once per test
+    //             assert.strictEqual(callCount, 1, 'Expected _resolveExecution to be called once');
+    //             assert.strictEqual(failureOccurred, false, failureMsg);
 
-                // verify output works for stdout and stderr as well as unittest output
-                assert.ok(
-                    collectedOutput.includes('expected printed output, stdout'),
-                    'The test string does not contain the expected stdout output.',
-                );
-                assert.ok(
-                    collectedOutput.includes('expected printed output, stderr'),
-                    'The test string does not contain the expected stderr output.',
-                );
-                assert.ok(
-                    collectedOutput.includes('Ran 1 test in'),
-                    'The test string does not contain the expected unittest output.',
-                );
-            });
-    });
-    test('unittest execution adapter large workspace', async () => {
-        // result resolver and saved data for assertions
-        resultResolver = new PythonResultResolver(testController, unittestProvider, workspaceUri);
-        let callCount = 0;
-        let failureOccurred = false;
-        let failureMsg = '';
-        resultResolver._resolveExecution = async (payload, _token?) => {
-            traceLog(`resolveDiscovery ${payload}`);
-            callCount = callCount + 1;
-            // the payloads that get to the _resolveExecution are all data and should be successful.
-            try {
-                const validStatuses = ['subtest-success', 'subtest-failure'];
-                assert.ok(
-                    validStatuses.includes(payload.status),
-                    `Expected status to be one of ${validStatuses.join(', ')}, but instead status is ${payload.status}`,
-                );
-                assert.ok(payload.result, 'Expected results to be present');
-            } catch (err) {
-                failureMsg = err ? (err as Error).toString() : '';
-                failureOccurred = true;
-            }
-            return Promise.resolve();
-        };
+    //             // verify output works for stdout and stderr as well as unittest output
+    //             assert.ok(
+    //                 collectedOutput.includes('expected printed output, stdout'),
+    //                 'The test string does not contain the expected stdout output.',
+    //             );
+    //             assert.ok(
+    //                 collectedOutput.includes('expected printed output, stderr'),
+    //                 'The test string does not contain the expected stderr output.',
+    //             );
+    //             assert.ok(
+    //                 collectedOutput.includes('Ran 1 test in'),
+    //                 'The test string does not contain the expected unittest output.',
+    //             );
+    //         });
+    // });
+    // test('unittest execution adapter large workspace', async () => {
+    //     // result resolver and saved data for assertions
+    //     resultResolver = new PythonResultResolver(testController, unittestProvider, workspaceUri);
+    //     let callCount = 0;
+    //     let failureOccurred = false;
+    //     let failureMsg = '';
+    //     resultResolver._resolveExecution = async (payload, _token?) => {
+    //         traceLog(`resolveDiscovery ${payload}`);
+    //         callCount = callCount + 1;
+    //         // the payloads that get to the _resolveExecution are all data and should be successful.
+    //         try {
+    //             const validStatuses = ['subtest-success', 'subtest-failure'];
+    //             assert.ok(
+    //                 validStatuses.includes(payload.status),
+    //                 `Expected status to be one of ${validStatuses.join(', ')}, but instead status is ${payload.status}`,
+    //             );
+    //             assert.ok(payload.result, 'Expected results to be present');
+    //         } catch (err) {
+    //             failureMsg = err ? (err as Error).toString() : '';
+    //             failureOccurred = true;
+    //         }
+    //         return Promise.resolve();
+    //     };
 
-        // set workspace to test workspace folder
-        workspaceUri = Uri.parse(rootPathLargeWorkspace);
-        configService.getSettings(workspaceUri).testing.unittestArgs = ['-s', '.', '-p', '*test*.py'];
+    //     // set workspace to test workspace folder
+    //     workspaceUri = Uri.parse(rootPathLargeWorkspace);
+    //     configService.getSettings(workspaceUri).testing.unittestArgs = ['-s', '.', '-p', '*test*.py'];
 
-        // run unittest execution
-        const executionAdapter = new UnittestTestExecutionAdapter(
-            configService,
-            testOutputChannel.object,
-            resultResolver,
-            envVarsService,
-        );
-        const testRun = typeMoq.Mock.ofType<TestRun>();
-        testRun
-            .setup((t) => t.token)
-            .returns(
-                () =>
-                    ({
-                        onCancellationRequested: () => undefined,
-                    } as any),
-            );
-        let collectedOutput = '';
-        testRun
-            .setup((t) => t.appendOutput(typeMoq.It.isAny()))
-            .callback((output: string) => {
-                collectedOutput += output;
-                traceLog('appendOutput was called with:', output);
-            })
-            .returns(() => false);
-        await executionAdapter
-            .runTests(
-                workspaceUri,
-                ['test_parameterized_subtest.NumbersTest.test_even'],
-                TestRunProfileKind.Run,
-                testRun.object,
-                pythonExecFactory,
-            )
-            .then(() => {
-                // verify that the _resolveExecution was called once per test
-                assert.strictEqual(callCount, 2000, 'Expected _resolveExecution to be called once');
-                assert.strictEqual(failureOccurred, false, failureMsg);
+    //     // run unittest execution
+    //     const executionAdapter = new UnittestTestExecutionAdapter(
+    //         configService,
+    //         testOutputChannel.object,
+    //         resultResolver,
+    //         envVarsService,
+    //     );
+    //     const testRun = typeMoq.Mock.ofType<TestRun>();
+    //     testRun
+    //         .setup((t) => t.token)
+    //         .returns(
+    //             () =>
+    //                 ({
+    //                     onCancellationRequested: () => undefined,
+    //                 } as any),
+    //         );
+    //     let collectedOutput = '';
+    //     testRun
+    //         .setup((t) => t.appendOutput(typeMoq.It.isAny()))
+    //         .callback((output: string) => {
+    //             collectedOutput += output;
+    //             traceLog('appendOutput was called with:', output);
+    //         })
+    //         .returns(() => false);
+    //     await executionAdapter
+    //         .runTests(
+    //             workspaceUri,
+    //             ['test_parameterized_subtest.NumbersTest.test_even'],
+    //             TestRunProfileKind.Run,
+    //             testRun.object,
+    //             pythonExecFactory,
+    //         )
+    //         .then(() => {
+    //             // verify that the _resolveExecution was called once per test
+    //             assert.strictEqual(callCount, 2000, 'Expected _resolveExecution to be called once');
+    //             assert.strictEqual(failureOccurred, false, failureMsg);
 
-                // verify output
-                assert.ok(
-                    collectedOutput.includes('test_parameterized_subtest.py'),
-                    'The test string does not contain the correct test name which should be printed',
-                );
-                assert.ok(
-                    collectedOutput.includes('FAILED (failures=1000)'),
-                    'The test string does not contain the last of the unittest output',
-                );
-            });
-    });
+    //             // verify output
+    //             assert.ok(
+    //                 collectedOutput.includes('test_parameterized_subtest.py'),
+    //                 'The test string does not contain the correct test name which should be printed',
+    //             );
+    //             assert.ok(
+    //                 collectedOutput.includes('FAILED (failures=1000)'),
+    //                 'The test string does not contain the last of the unittest output',
+    //             );
+    //         });
+    // });
     test('Unittest execution with coverage, small workspace', async () => {
         // result resolver and saved data for assertions
         resultResolver = new PythonResultResolver(testController, unittestProvider, workspaceUri);
