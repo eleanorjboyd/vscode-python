@@ -209,7 +209,7 @@ suite('End to End Tests: unittest adapters', () => {
             return Promise.resolve();
         };
 
-        const testId = `test_seg_fault.TestSegmentationFault.test_segfault`;
+        const testId = 'test_seg_fault.TestSegmentationFault.test_segfault';
         const testIds: string[] = [testId];
 
         // set workspace to test workspace folder
