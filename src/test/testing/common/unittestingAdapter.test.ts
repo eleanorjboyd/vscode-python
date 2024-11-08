@@ -45,12 +45,6 @@ suite('End to End Tests: unittest adapters', () => {
         'testTestingRootWkspc',
         'largeWorkspace',
     );
-    const rootPathErrorWorkspace = path.join(
-        EXTENSION_ROOT_DIR_FOR_TESTS,
-        'src',
-        'testTestingRootWkspc',
-        'errorWorkspace',
-    );
     const rootPathDiscoveryErrorWorkspace = path.join(
         EXTENSION_ROOT_DIR_FOR_TESTS,
         'src',
