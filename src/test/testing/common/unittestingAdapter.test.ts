@@ -162,83 +162,7 @@ suite('End to End Tests: unittest adapters', () => {
             traceLog('Symlink was not found to remove after tests, exiting successfully, nestedSymlink.');
         }
     });
-    test('unittest execution adapter RuntimeError handling', async () => {
-        resultResolver = new PythonResultResolver(testController, unittestProvider, workspaceUri);
-        let callCount = 0;
-        let failureOccurred = false;
-        let failureMsg = '';
-        resultResolver._resolveExecution = async (data, _token?) => {
-            // do the following asserts for each time resolveExecution is called, should be called once per test.
-            callCount = callCount + 1;
-            traceLog(`unittest execution adapter seg fault error handling \n  ${JSON.stringify(data)}`);
-            try {
-                if (data.status === 'error') {
-                    if (data.error === undefined) {
-                        // Dereference a NULL pointer
-                        const indexOfTest = JSON.stringify(data).search('RuntimeError');
-                        if (indexOfTest === -1) {
-                            failureOccurred = true;
-                            failureMsg = 'Expected test to have a RuntimeError';
-                        }
-                    } else if (data.error.length === 0) {
-                        failureOccurred = true;
-                        failureMsg = "Expected errors in 'error' field";
-                    }
-                } else {
-                    const indexOfTest = JSON.stringify(data.result).search('error');
-                    if (indexOfTest === -1) {
-                        failureOccurred = true;
-                        failureMsg =
-                            'If payload status is not error then the individual tests should be marked as errors. This should occur on windows machines.';
-                    }
-                }
-                if (data.result === undefined) {
-                    failureOccurred = true;
-                    failureMsg = 'Expected results to be present';
-                }
-                // make sure the testID is found in the results
-                const indexOfTest = JSON.stringify(data).search('test_runtime_error.TestRuntimeError.test_exception');
-                if (indexOfTest === -1) {
-                    failureOccurred = true;
-                    failureMsg = 'Expected testId to be present';
-                }
-            } catch (err) {
-                failureMsg = err ? (err as Error).toString() : '';
-                failureOccurred = true;
-            }
-            return Promise.resolve();
-        };
 
-        const testId = 'test_runtime_error.TestRuntimeError.test_exception';
-        const testIds: string[] = [testId];
-
-        // set workspace to test workspace folder
-        workspaceUri = Uri.parse(rootPathErrorWorkspace);
-        configService.getSettings(workspaceUri).testing.unittestArgs = ['-s', '.', '-p', '*test*.py'];
-
-        // run pytest execution
-        const executionAdapter = new UnittestTestExecutionAdapter(
-            configService,
-            testOutputChannel.object,
-            resultResolver,
-            envVarsService,
-        );
-        const testRun = typeMoq.Mock.ofType<TestRun>();
-        testRun
-            .setup((t) => t.token)
-            .returns(
-                () =>
-                    ({
-                        onCancellationRequested: () => undefined,
-                    } as any),
-            );
-        await executionAdapter
-            .runTests(workspaceUri, testIds, TestRunProfileKind.Run, testRun.object, pythonExecFactory)
-            .finally(() => {
-                assert.strictEqual(callCount, 1, 'Expected _resolveExecution to be called once');
-                assert.strictEqual(failureOccurred, false, failureMsg);
-            });
-    });
     test('unittest discovery adapter small workspace', async () => {
         // result resolver and saved data for assertions
         let actualData: {
@@ -594,5 +518,82 @@ suite('End to End Tests: unittest adapters', () => {
             assert.strictEqual(callCount, 1, 'Expected _resolveDiscovery to be called once');
             assert.strictEqual(failureOccurred, false, failureMsg);
         });
+    });
+    test('unittest execution adapter RuntimeError handling', async () => {
+        resultResolver = new PythonResultResolver(testController, unittestProvider, workspaceUri);
+        let callCount = 0;
+        let failureOccurred = false;
+        let failureMsg = '';
+        resultResolver._resolveExecution = async (data, _token?) => {
+            // do the following asserts for each time resolveExecution is called, should be called once per test.
+            callCount = callCount + 1;
+            traceLog(`unittest execution adapter seg fault error handling \n  ${JSON.stringify(data)}`);
+            try {
+                if (data.status === 'error') {
+                    if (data.error === undefined) {
+                        // Dereference a NULL pointer
+                        const indexOfTest = JSON.stringify(data).search('RuntimeError');
+                        if (indexOfTest === -1) {
+                            failureOccurred = true;
+                            failureMsg = 'Expected test to have a RuntimeError';
+                        }
+                    } else if (data.error.length === 0) {
+                        failureOccurred = true;
+                        failureMsg = "Expected errors in 'error' field";
+                    }
+                } else {
+                    const indexOfTest = JSON.stringify(data.result).search('error');
+                    if (indexOfTest === -1) {
+                        failureOccurred = true;
+                        failureMsg =
+                            'If payload status is not error then the individual tests should be marked as errors. This should occur on windows machines.';
+                    }
+                }
+                if (data.result === undefined) {
+                    failureOccurred = true;
+                    failureMsg = 'Expected results to be present';
+                }
+                // make sure the testID is found in the results
+                const indexOfTest = JSON.stringify(data).search('test_runtime_error.TestRuntimeError.test_exception');
+                if (indexOfTest === -1) {
+                    failureOccurred = true;
+                    failureMsg = 'Expected testId to be present';
+                }
+            } catch (err) {
+                failureMsg = err ? (err as Error).toString() : '';
+                failureOccurred = true;
+            }
+            return Promise.resolve();
+        };
+
+        const testId = 'test_runtime_error.TestRuntimeError.test_exception';
+        const testIds: string[] = [testId];
+
+        // set workspace to test workspace folder
+        workspaceUri = Uri.parse(rootPathErrorWorkspace);
+        configService.getSettings(workspaceUri).testing.unittestArgs = ['-s', '.', '-p', '*test*.py'];
+
+        // run pytest execution
+        const executionAdapter = new UnittestTestExecutionAdapter(
+            configService,
+            testOutputChannel.object,
+            resultResolver,
+            envVarsService,
+        );
+        const testRun = typeMoq.Mock.ofType<TestRun>();
+        testRun
+            .setup((t) => t.token)
+            .returns(
+                () =>
+                    ({
+                        onCancellationRequested: () => undefined,
+                    } as any),
+            );
+        await executionAdapter
+            .runTests(workspaceUri, testIds, TestRunProfileKind.Run, testRun.object, pythonExecFactory)
+            .finally(() => {
+                assert.strictEqual(callCount, 1, 'Expected _resolveExecution to be called once');
+                assert.strictEqual(failureOccurred, false, failureMsg);
+            });
     });
 });
