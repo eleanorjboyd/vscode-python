@@ -4,7 +4,6 @@ out
 log.log
 **/node_modules
 *.pyc
-*.vsix
 envVars.txt
 **/.vscode/.ropeproject/**
 **/testFiles/**/.cache/**
