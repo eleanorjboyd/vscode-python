@@ -7,7 +7,8 @@
     "parser": "@typescript-eslint/parser",
     "plugins": [
         "@typescript-eslint",
-        "no-only-tests"
+        "no-only-tests",
+        "local"
     ],
     "extends": [
         "airbnb",
@@ -18,6 +19,7 @@
         "prettier"
     ],
     "rules": {
+        "local/no-bad-gdpr-comment": ["error"],
         // Overriding ESLint rules with Typescript-specific ones
         "@typescript-eslint/ban-ts-comment": [
             "error",
@@ -52,7 +54,6 @@
         "no-useless-constructor": "off",
         "@typescript-eslint/no-useless-constructor": "error",
         "@typescript-eslint/no-var-requires": "off",
-
         // Other rules
         "class-methods-use-this": ["error", {"exceptMethods": ["dispose"]}],
         "func-names": "off",
