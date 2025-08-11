@@ -47,6 +47,8 @@ export class ReportIssueCommandHandler implements IExtensionSingleActivationServ
 
     private argSettingsPath = path.join(EXTENSION_ROOT_DIR, 'resources', 'report_issue_user_settings.json');
 
+    private templatePath = path.join(EXTENSION_ROOT_DIR, 'resources', 'report_issue_template.md');
+
     private userDataTemplatePath = path.join(EXTENSION_ROOT_DIR, 'resources', 'report_issue_user_data_template.md');
 
     public async openReportIssue(): Promise<void> {
@@ -86,6 +88,7 @@ export class ReportIssueCommandHandler implements IExtensionSingleActivationServ
                 }
             }
         });
+        const template = await fs.readFile(this.templatePath, 'utf8');
         const userTemplate = await fs.readFile(this.userDataTemplatePath, 'utf8');
         const interpreter = await this.interpreterService.getActiveInterpreter();
         const pythonVersion = interpreter?.version?.raw ?? '';
@@ -115,16 +118,21 @@ export class ReportIssueCommandHandler implements IExtensionSingleActivationServ
                 return `|${extension.packageJSON.name}|${publisher}|${extension.packageJSON.version}|`;
             });
 
+        const formattedDiagnosticData = userTemplate.format(
+            pythonVersion,
+            virtualEnvKind,
+            languageServer,
+            hasMultipleFoldersText,
+            userSettings,
+            installedExtensions.join('\n'),
+        );
+
+        // Replace the XXX placeholder in the diagnostic data section with the formatted diagnostic data
+        const issueBodyWithDiagnostics = template.replace('XXX', formattedDiagnosticData);
+
         await this.commandManager.executeCommand('workbench.action.openIssueReporter', {
             extensionId: 'ms-python.python',
-            issueBody: userTemplate.format(
-                pythonVersion,
-                virtualEnvKind,
-                languageServer,
-                hasMultipleFoldersText,
-                userSettings,
-                installedExtensions.join('\n'),
-            ),
+            issueBody: issueBodyWithDiagnostics,
         });
         sendTelemetryEvent(EventName.USE_REPORT_ISSUE_COMMAND, undefined, {});
     }

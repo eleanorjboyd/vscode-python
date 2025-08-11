@@ -39,6 +39,7 @@ suite('Report Issue Command', () => {
     let interpreterService: IInterpreterService;
     let configurationService: IConfigurationService;
     let appEnvironment: IApplicationEnvironment;
+    let expectedIssueBody: string;
     let getExtensionsStub: sinon.SinonStub;
 
     setup(async () => {
@@ -83,6 +84,17 @@ suite('Report Issue Command', () => {
         );
         await reportIssueCommandHandler.activate();
 
+        const issueTemplatePath = path.join(
+            EXTENSION_ROOT_DIR_FOR_TESTS,
+            'src',
+            'test',
+            'common',
+            'application',
+            'commands',
+            'issueTemplate.md',
+        );
+        expectedIssueBody = fs.readFileSync(issueTemplatePath, 'utf8');
+
         getExtensionsStub.returns([
             {
                 id: 'ms-python.python',
@@ -113,6 +125,9 @@ suite('Report Issue Command', () => {
             'issueUserDataTemplateVenv1.md',
         );
         const expectedData = fs.readFileSync(userDataTemplatePath, 'utf8');
+        
+        // The expected result should be the template with XXX replaced by diagnostic data
+        const expectedCombinedIssueBody = expectedIssueBody.replace('XXX', expectedData);
 
         const args: [string, { extensionId: string; issueBody: string }] = capture<
             AllCommands,
@@ -123,7 +138,7 @@ suite('Report Issue Command', () => {
         verify(cmdManager.executeCommand('workbench.action.openIssueReporter', anything())).once();
         expect(args[0]).to.be.equal('workbench.action.openIssueReporter');
         const { issueBody } = args[1];
-        expect(issueBody).to.be.equal(expectedData);
+        expect(issueBody).to.be.equal(expectedCombinedIssueBody);
     });
 
     test('Test if issue body is filled when only including settings which are explicitly set', async () => {
@@ -153,6 +168,9 @@ suite('Report Issue Command', () => {
             'issueUserDataTemplateVenv2.md',
         );
         const expectedData = fs.readFileSync(userDataTemplatePath, 'utf8');
+        
+        // The expected result should be the template with XXX replaced by diagnostic data
+        const expectedCombinedIssueBody = expectedIssueBody.replace('XXX', expectedData);
 
         const args: [string, { extensionId: string; issueBody: string }] = capture<
             AllCommands,
@@ -162,7 +180,7 @@ suite('Report Issue Command', () => {
         verify(cmdManager.executeCommand('workbench.action.openIssueReporter', anything())).once();
         expect(args[0]).to.be.equal('workbench.action.openIssueReporter');
         const { issueBody } = args[1];
-        expect(issueBody).to.be.equal(expectedData);
+        expect(issueBody).to.be.equal(expectedCombinedIssueBody);
     });
     test('Should send telemetry event when run Report Issue Command', async () => {
         const sendTelemetryStub = sinon.stub(Telemetry, 'sendTelemetryEvent');
