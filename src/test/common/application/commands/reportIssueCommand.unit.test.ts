@@ -125,18 +125,20 @@ suite('Report Issue Command', () => {
             'issueUserDataTemplateVenv1.md',
         );
         const expectedData = fs.readFileSync(userDataTemplatePath, 'utf8');
+        
+        // The expected result should be the template with XXX replaced by diagnostic data
+        const expectedCombinedIssueBody = expectedIssueBody.replace('XXX', expectedData);
 
-        const args: [string, { extensionId: string; issueBody: string; data: string }] = capture<
+        const args: [string, { extensionId: string; issueBody: string }] = capture<
             AllCommands,
-            { extensionId: string; issueBody: string; data: string }
+            { extensionId: string; issueBody: string }
         >(cmdManager.executeCommand).last();
 
         verify(cmdManager.registerCommand(Commands.ReportIssue, anything(), anything())).once();
         verify(cmdManager.executeCommand('workbench.action.openIssueReporter', anything())).once();
         expect(args[0]).to.be.equal('workbench.action.openIssueReporter');
-        const { issueBody, data } = args[1];
-        expect(issueBody).to.be.equal(expectedIssueBody);
-        expect(data).to.be.equal(expectedData);
+        const { issueBody } = args[1];
+        expect(issueBody).to.be.equal(expectedCombinedIssueBody);
     });
 
     test('Test if issue body is filled when only including settings which are explicitly set', async () => {
@@ -166,17 +168,19 @@ suite('Report Issue Command', () => {
             'issueUserDataTemplateVenv2.md',
         );
         const expectedData = fs.readFileSync(userDataTemplatePath, 'utf8');
+        
+        // The expected result should be the template with XXX replaced by diagnostic data
+        const expectedCombinedIssueBody = expectedIssueBody.replace('XXX', expectedData);
 
-        const args: [string, { extensionId: string; issueBody: string; data: string }] = capture<
+        const args: [string, { extensionId: string; issueBody: string }] = capture<
             AllCommands,
-            { extensionId: string; issueBody: string; data: string }
+            { extensionId: string; issueBody: string }
         >(cmdManager.executeCommand).last();
 
         verify(cmdManager.executeCommand('workbench.action.openIssueReporter', anything())).once();
         expect(args[0]).to.be.equal('workbench.action.openIssueReporter');
-        const { issueBody, data } = args[1];
-        expect(issueBody).to.be.equal(expectedIssueBody);
-        expect(data).to.be.equal(expectedData);
+        const { issueBody } = args[1];
+        expect(issueBody).to.be.equal(expectedCombinedIssueBody);
     });
     test('Should send telemetry event when run Report Issue Command', async () => {
         const sendTelemetryStub = sinon.stub(Telemetry, 'sendTelemetryEvent');

@@ -118,17 +118,21 @@ export class ReportIssueCommandHandler implements IExtensionSingleActivationServ
                 return `|${extension.packageJSON.name}|${publisher}|${extension.packageJSON.version}|`;
             });
 
+        const formattedDiagnosticData = userTemplate.format(
+            pythonVersion,
+            virtualEnvKind,
+            languageServer,
+            hasMultipleFoldersText,
+            userSettings,
+            installedExtensions.join('\n'),
+        );
+
+        // Replace the XXX placeholder in the diagnostic data section with the formatted diagnostic data
+        const issueBodyWithDiagnostics = template.replace('XXX', formattedDiagnosticData);
+
         await this.commandManager.executeCommand('workbench.action.openIssueReporter', {
             extensionId: 'ms-python.python',
-            issueBody: template,
-            data: userTemplate.format(
-                pythonVersion,
-                virtualEnvKind,
-                languageServer,
-                hasMultipleFoldersText,
-                userSettings,
-                installedExtensions.join('\n'),
-            ),
+            issueBody: issueBodyWithDiagnostics,
         });
         sendTelemetryEvent(EventName.USE_REPORT_ISSUE_COMMAND, undefined, {});
     }
