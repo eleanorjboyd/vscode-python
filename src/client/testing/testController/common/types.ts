@@ -16,6 +16,7 @@ import {
 import { ITestDebugLauncher } from '../../common/types';
 import { IPythonExecutionFactory } from '../../../common/process/types';
 import { PythonEnvironment } from '../../../pythonEnvironments/info';
+import { Deferred } from '../../../common/utils/async';
 
 export enum TestDataKinds {
     Workspace,
@@ -146,8 +147,12 @@ export interface ITestResultResolver {
     runIdToVSid: Map<string, string>;
     runIdToTestItem: Map<string, TestItem>;
     vsIdToRunId: Map<string, string>;
+    testIdToProjectPath: Map<string, string>;
     detailedCoverageMap: Map<string, FileCoverageDetail[]>;
 
+    setDiscoveryPromise(projectKey: string, promise: Deferred<void>): void;
+    setCurrentProjectPath(projectPath: string | undefined): void;
+    endDiscovery(): void;
     resolveDiscovery(payload: DiscoveredTestPayload, token?: CancellationToken): void;
     resolveExecution(payload: ExecutionTestPayload | CoveragePayload, runInstance: TestRun): void;
     _resolveDiscovery(payload: DiscoveredTestPayload, token?: CancellationToken): void;

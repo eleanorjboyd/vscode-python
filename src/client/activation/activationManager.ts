@@ -73,6 +73,8 @@ export class ExtensionActivationManager implements IExtensionActivationManager {
     public async activate(startupStopWatch: StopWatch): Promise<void> {
         this.filterServices();
         await this.initialize();
+        // eslint-disable-next-line no-debugger
+        // debugger;
 
         // Activate all activation services together.
 

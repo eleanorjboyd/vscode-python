@@ -27,6 +27,29 @@ export function createTestingDeferred(): Deferred<void> {
     return createDeferred<void>();
 }
 
+/**
+ * Finds the closest parent project for a given test file path.
+ * Returns the longest (most specific) project path that contains the test file.
+ * @param testPath - The full path to the test file
+ * @param allProjectPaths - Array of all project root paths
+ * @returns The closest parent project path, or the current project if no parent found
+ */
+export function findClosestProjectPath(testPath: string, allProjectPaths: string[]): string {
+    // Find all projects that are parent paths of testPath
+    const parentProjects = allProjectPaths.filter((projectPath) => {
+        // Normalize paths for comparison
+        const normalizedTestPath = path.normalize(testPath);
+        const normalizedProjectPath = path.normalize(projectPath);
+        return normalizedTestPath.startsWith(normalizedProjectPath);
+    });
+
+    // Return the longest (most specific/closest) one
+    if (parentProjects.length === 0) {
+        return allProjectPaths[0] || testPath;
+    }
+    return parentProjects.sort((a, b) => b.length - a.length)[0];
+}
+
 interface ExecutionResultMessage extends Message {
     params: ExecutionTestPayload;
 }
@@ -134,14 +157,19 @@ interface DiscoveryResultMessage extends Message {
 export async function startDiscoveryNamedPipe(
     callback: (payload: DiscoveredTestPayload) => void,
     cancellationToken?: CancellationToken,
+    expectedConnections: number = 1,
 ): Promise<string> {
     traceVerbose('Starting Test Discovery named pipe');
     // const pipeName: string = '/Users/eleanorboyd/testingFiles/inc_dec_example/temp33.txt';
     const pipeName: string = generateRandomPipeName('python-test-discovery');
     const reader = await createReaderPipe(pipeName, cancellationToken);
 
-    traceVerbose(`Test Discovery named pipe ${pipeName} connected`);
+    traceVerbose(
+        `Test Discovery named pipe ${pipeName} connected (expecting ${expectedConnections} subprocess connections)`,
+    );
     let disposables: Disposable[] = [];
+    let completedConnections = 0;
+
     const disposable = new Disposable(() => {
         traceVerbose(`Test Discovery named pipe ${pipeName} disposed`);
         disposables.forEach((d) => d.dispose());
@@ -164,8 +192,15 @@ export async function startDiscoveryNamedPipe(
             callback((data as DiscoveryResultMessage).params as DiscoveredTestPayload);
         }),
         reader.onClose(() => {
-            traceVerbose(`Test Discovery named pipe ${pipeName} closed`);
-            disposable.dispose();
+            completedConnections += 1;
+            traceVerbose(
+                `Test Discovery named pipe ${pipeName} subprocess disconnected (${completedConnections}/${expectedConnections})`,
+            );
+            // Only dispose the pipe after all expected subprocesses have connected and disconnected
+            if (completedConnections >= expectedConnections) {
+                traceVerbose(`Test Discovery named pipe ${pipeName} all subprocesses completed, closing pipe`);
+                disposable.dispose();
+            }
         }),
         reader.onError((error) => {
             traceError(`Test Discovery named pipe ${pipeName} error:`, error);
@@ -211,58 +246,159 @@ export function populateTestTree(
     testRoot: TestItem | undefined,
     resultResolver: ITestResultResolver,
     token?: CancellationToken,
+    projectPath?: string,
+    workspacePath?: string,
+    allProjectPaths?: string[],
 ): void {
-    // If testRoot is undefined, use the info of the root item of testTreeData to create a test item, and append it to the test controller.
+    // If testRoot is undefined, we need to create the appropriate root node
     if (!testRoot) {
-        testRoot = testController.createTestItem(testTreeData.path, testTreeData.name, Uri.file(testTreeData.path));
+        // If this is a multi-project setup and projectPath is not the workspace root,
+        // create a project node to group this project's tests
+        if (projectPath && workspacePath && projectPath !== workspacePath) {
+            // First, ensure the workspace root exists
+            let workspaceRoot = testController.items.get(workspacePath);
+            if (!workspaceRoot) {
+                workspaceRoot = testController.createTestItem(workspacePath, 'Workspace', Uri.file(workspacePath));
+                workspaceRoot.canResolveChildren = true;
+                workspaceRoot.tags = [RunTestTag, DebugTestTag];
+                testController.items.add(workspaceRoot);
+            }
 
-        testRoot.canResolveChildren = true;
-        testRoot.tags = [RunTestTag, DebugTestTag];
+            // Create the project node
+            const projectName = path.basename(projectPath);
+            testRoot = testController.createTestItem(projectPath, projectName, Uri.file(projectPath));
+            testRoot.canResolveChildren = true;
+            testRoot.tags = [RunTestTag, DebugTestTag];
+            workspaceRoot.children.add(testRoot);
 
-        testController.items.add(testRoot);
+            // For multi-project, skip the root testTreeData (which is the project path)
+            // and directly populate from its children
+            testTreeData.children.forEach((child) => {
+                if (!token?.isCancellationRequested) {
+                    populateTestChild(
+                        testController,
+                        child,
+                        testRoot as TestItem,
+                        resultResolver,
+                        token,
+                        projectPath,
+                        workspacePath,
+                        allProjectPaths,
+                    );
+                }
+            });
+            return;
+        } else {
+            // Single project or project is at workspace root - use the standard root
+            testRoot = testController.createTestItem(testTreeData.path, testTreeData.name, Uri.file(testTreeData.path));
+            testRoot.canResolveChildren = true;
+            testRoot.tags = [RunTestTag, DebugTestTag];
+            testController.items.add(testRoot);
+        }
     }
 
     // Recursively populate the tree with test data.
     testTreeData.children.forEach((child) => {
         if (!token?.isCancellationRequested) {
-            if (isTestItem(child)) {
-                const testItem = testController.createTestItem(child.id_, child.name, Uri.file(child.path));
-                testItem.tags = [RunTestTag, DebugTestTag];
-
-                let range: Range | undefined;
-                if (child.lineno) {
-                    if (Number(child.lineno) === 0) {
-                        range = new Range(new Position(0, 0), new Position(0, 0));
-                    } else {
-                        range = new Range(
-                            new Position(Number(child.lineno) - 1, 0),
-                            new Position(Number(child.lineno), 0),
-                        );
-                    }
-                }
-                testItem.canResolveChildren = false;
-                testItem.range = range;
-                testItem.tags = [RunTestTag, DebugTestTag];
-
-                testRoot!.children.add(testItem);
-                // add to our map
-                resultResolver.runIdToTestItem.set(child.runID, testItem);
-                resultResolver.runIdToVSid.set(child.runID, child.id_);
-                resultResolver.vsIdToRunId.set(child.id_, child.runID);
-            } else {
-                let node = testController.items.get(child.path);
-
-                if (!node) {
-                    node = testController.createTestItem(child.id_, child.name, Uri.file(child.path));
-
-                    node.canResolveChildren = true;
-                    node.tags = [RunTestTag, DebugTestTag];
-                    testRoot!.children.add(node);
-                }
-                populateTestTree(testController, child, node, resultResolver, token);
-            }
+            populateTestChild(
+                testController,
+                child,
+                testRoot as TestItem,
+                resultResolver,
+                token,
+                projectPath,
+                workspacePath,
+                allProjectPaths,
+            );
         }
     });
+}
+
+function populateTestChild(
+    testController: TestController,
+    child: DiscoveredTestNode | DiscoveredTestItem,
+    testRoot: TestItem,
+    resultResolver: ITestResultResolver,
+    token: CancellationToken | undefined,
+    projectPath?: string,
+    workspacePath?: string,
+    allProjectPaths?: string[],
+): void {
+    if (isTestItem(child)) {
+        const testItem = testController.createTestItem(child.id_, child.name, Uri.file(child.path));
+        testItem.tags = [RunTestTag, DebugTestTag];
+
+        let range: Range | undefined;
+        if (child.lineno) {
+            if (Number(child.lineno) === 0) {
+                range = new Range(new Position(0, 0), new Position(0, 0));
+            } else {
+                range = new Range(new Position(Number(child.lineno) - 1, 0), new Position(Number(child.lineno), 0));
+            }
+        }
+        testItem.canResolveChildren = false;
+        testItem.range = range;
+        testItem.tags = [RunTestTag, DebugTestTag];
+
+        testRoot.children.add(testItem);
+        // add to our map
+        resultResolver.runIdToTestItem.set(child.runID, testItem);
+        resultResolver.runIdToVSid.set(child.runID, child.id_);
+        resultResolver.vsIdToRunId.set(child.id_, child.runID);
+
+        // Find and store the closest parent project for this test
+        if (allProjectPaths && allProjectPaths.length > 0) {
+            const closestProject = findClosestProjectPath(child.path, allProjectPaths);
+            resultResolver.testIdToProjectPath.set(child.id_, closestProject);
+        }
+    } else {
+        // Skip if this node represents the project root itself (in multi-project mode)
+        // We've already created the project node, so just process its children
+        if (projectPath && child.path === projectPath) {
+            // Process children directly without creating a duplicate node
+            child.children.forEach((grandchild) => {
+                if (!token?.isCancellationRequested) {
+                    populateTestChild(
+                        testController,
+                        grandchild,
+                        testRoot,
+                        resultResolver,
+                        token,
+                        projectPath,
+                        workspacePath,
+                        allProjectPaths,
+                    );
+                }
+            });
+            return;
+        }
+
+        let node = testController.items.get(child.path);
+
+        if (!node) {
+            node = testController.createTestItem(child.id_, child.name, Uri.file(child.path));
+
+            node.canResolveChildren = true;
+            node.tags = [RunTestTag, DebugTestTag];
+            testRoot.children.add(node);
+        }
+
+        // Recursively populate children
+        child.children.forEach((grandchild) => {
+            if (!token?.isCancellationRequested) {
+                populateTestChild(
+                    testController,
+                    grandchild,
+                    node as TestItem,
+                    resultResolver,
+                    token,
+                    projectPath,
+                    workspacePath,
+                    allProjectPaths,
+                );
+            }
+        });
+    }
 }
 
 function isTestItem(test: DiscoveredTestNode | DiscoveredTestItem): test is DiscoveredTestItem {

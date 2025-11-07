@@ -64,6 +64,12 @@ INCLUDE_BRANCHES = False
 
 
 def pytest_load_initial_conftests(early_config, parser, args):  # noqa: ARG001
+    print(f"[DEBUG] pytest_load_initial_conftests called", file=sys.stderr)
+    print(f"[DEBUG] args: {args}", file=sys.stderr)
+    print(f"[DEBUG] TEST_RUN_PIPE env: {os.getenv('TEST_RUN_PIPE')}", file=sys.stderr)
+    print(f"[DEBUG] cwd: {pathlib.Path.cwd()}", file=sys.stderr)
+    print(f"[DEBUG] sys.argv: {sys.argv}", file=sys.stderr)
+
     has_pytest_cov = early_config.pluginmanager.hasplugin("pytest_cov")
     has_cov_arg = any("--cov" in arg for arg in args)
     if has_cov_arg and not has_pytest_cov:
@@ -887,7 +893,8 @@ def get_node_path(node: Any) -> pathlib.Path:
 
 
 __writer = None
-atexit.register(lambda: __writer.close() if __writer else None)
+# TEMPORARY TEST: Disabled atexit close to test multi-project discovery
+# atexit.register(lambda: __writer.close() if __writer else None)
 
 
 def send_execution_message(

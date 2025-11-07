@@ -27,6 +27,7 @@ import {
 import { TestProvider } from '../../types';
 import { traceError, traceVerbose } from '../../../logging';
 import { Testing } from '../../../common/utils/localize';
+import { Deferred } from '../../../common/utils/async';
 import { clearAllChildren, createErrorTestItem, getTestCaseNodes } from './testItemUtilities';
 import { sendTelemetryEvent } from '../../../telemetry';
 import { EventName } from '../../../telemetry/constants';
@@ -44,9 +45,17 @@ export class PythonResultResolver implements ITestResultResolver {
 
     public vsIdToRunId: Map<string, string>;
 
+    public testIdToProjectPath: Map<string, string> = new Map();
+
     public subTestStats: Map<string, { passed: number; failed: number }> = new Map();
 
     public detailedCoverageMap = new Map<string, FileCoverageDetail[]>();
+
+    private discoveryInProgress = false;
+
+    private discoveryPromises: Map<string, Deferred<void>> = new Map();
+
+    private currentProjectPath: string | undefined;
 
     constructor(testController: TestController, testProvider: TestProvider, private workspaceUri: Uri) {
         this.testController = testController;
@@ -55,6 +64,20 @@ export class PythonResultResolver implements ITestResultResolver {
         this.runIdToTestItem = new Map<string, TestItem>();
         this.runIdToVSid = new Map<string, string>();
         this.vsIdToRunId = new Map<string, string>();
+    }
+
+    public setDiscoveryPromise(projectKey: string, promise: Deferred<void>): void {
+        this.discoveryPromises.set(projectKey, promise);
+    }
+
+    public setCurrentProjectPath(projectPath: string | undefined): void {
+        this.currentProjectPath = projectPath;
+    }
+
+    public endDiscovery(): void {
+        // Called when all projects have completed discovery
+        this.discoveryInProgress = false;
+        this.discoveryPromises.clear();
     }
 
     public resolveDiscovery(payload: DiscoveredTestPayload, token?: CancellationToken): void {
@@ -99,14 +122,38 @@ export class PythonResultResolver implements ITestResultResolver {
             // if any tests exist, they should be populated in the test tree, regardless of whether there were errors or not.
             // parse and insert test data.
 
-            // Clear existing mappings before rebuilding test tree
-            this.runIdToTestItem.clear();
-            this.runIdToVSid.clear();
-            this.vsIdToRunId.clear();
+            // Clear existing mappings only on the first discovery payload to support multi-project discovery
+            // Subsequent payloads from other projects will merge into the same tree
+            if (!this.discoveryInProgress) {
+                this.discoveryInProgress = true;
+                this.runIdToTestItem.clear();
+                this.runIdToVSid.clear();
+                this.vsIdToRunId.clear();
+                this.testIdToProjectPath.clear();
+            }
 
             // If the test root for this folder exists: Workspace refresh, update its children.
             // Otherwise, it is a freshly discovered workspace, and we need to create a new test root and populate the test tree.
-            populateTestTree(this.testController, rawTestData.tests, undefined, this, token);
+            populateTestTree(
+                this.testController,
+                rawTestData.tests,
+                undefined,
+                this,
+                token,
+                this.currentProjectPath,
+                this.workspaceUri.fsPath,
+            );
+        } else {
+            // No tests found in this payload, mark discovery as complete
+            this.discoveryInProgress = false;
+        }
+
+        // Resolve the promise for this project's discovery (on success or error)
+        const projectKey = rawTestData.cwd || workspacePath;
+        const promise = this.discoveryPromises.get(projectKey);
+        if (promise) {
+            promise.resolve();
+            this.discoveryPromises.delete(projectKey);
         }
 
         sendTelemetryEvent(EventName.UNITTEST_DISCOVERY_DONE, undefined, {

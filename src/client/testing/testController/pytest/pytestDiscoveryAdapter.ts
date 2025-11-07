@@ -24,7 +24,8 @@ import {
 } from '../common/utils';
 import { IEnvironmentVariablesProvider } from '../../../common/variables/types';
 import { PythonEnvironment } from '../../../pythonEnvironments/info';
-import { useEnvExtension, getEnvironment, runInBackground } from '../../../envExt/api.internal';
+import { PythonEnvironment as EnvExtPythonEnvironment } from '../../../envExt/types';
+import { useEnvExtension, getEnvironment, runInBackground, getEnvExtApi } from '../../../envExt/api.internal';
 
 /**
  * Wrapper class for unittest test discovery. This is where we call `runTestCommand`. #this seems incorrectly copied
@@ -51,12 +52,32 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
             deferredReturn.resolve();
         });
 
-        const name = await startDiscoveryNamedPipe((data: DiscoveredTestPayload) => {
-            // if the token is cancelled, we don't want process the data
-            if (!token?.isCancellationRequested) {
-                this.resultResolver?.resolveDiscovery(data);
+        // If using env extension, get the number of projects to discover upfront
+        let expectedConnections = 1;
+        if (useEnvExtension()) {
+            try {
+                const envExtApi = await getEnvExtApi();
+                const allProjects = envExtApi.getPythonProjects();
+                expectedConnections = allProjects.length > 0 ? allProjects.length : 1;
+                traceInfo(
+                    `Expecting ${expectedConnections} discovery connections for ${expectedConnections} Python projects`,
+                );
+            } catch (error) {
+                traceVerbose(`Could not get project count, defaulting to 1 connection: ${error}`);
+                expectedConnections = 1;
             }
-        }, cSource.token);
+        }
+
+        const name = await startDiscoveryNamedPipe(
+            (data: DiscoveredTestPayload) => {
+                // if the token is cancelled, we don't want process the data
+                if (!token?.isCancellationRequested) {
+                    this.resultResolver?.resolveDiscovery(data);
+                }
+            },
+            cSource.token,
+            expectedConnections,
+        );
 
         this.runPytestDiscovery(uri, name, cSource, executionFactory, interpreter, token).then(() => {
             deferredReturn.resolve();
@@ -114,45 +135,98 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
         );
 
         // delete UUID following entire discovery finishing.
-        const execArgs = ['-m', 'pytest', '-p', 'vscode_pytest', '--collect-only'].concat(pytestArgs);
+        let execArgs = ['-m', 'pytest', '-p', 'vscode_pytest', '--collect-only'].concat(pytestArgs);
         traceVerbose(`Running pytest discovery with command: ${execArgs.join(' ')} for workspace ${uri.fsPath}.`);
 
+        // Check if we should use the Python environments extension for multi-project discovery
         if (useEnvExtension()) {
+            // Get the Python environment for the current workspace URI
             const pythonEnv = await getEnvironment(uri);
-            if (pythonEnv) {
-                const deferredTillExecClose: Deferred<void> = createTestingDeferred();
 
-                const proc = await runInBackground(pythonEnv, {
-                    cwd,
-                    args: execArgs,
-                    env: (mutableEnv as unknown) as { [key: string]: string },
-                });
-                token?.onCancellationRequested(() => {
-                    traceInfo(`Test discovery cancelled, killing pytest subprocess for workspace ${uri.fsPath}`);
-                    proc.kill();
-                    deferredTillExecClose.resolve();
-                    cSource.cancel();
-                });
-                proc.stdout.on('data', (data) => {
-                    const out = fixLogLinesNoTrailing(data.toString());
-                    traceInfo(out);
-                });
-                proc.stderr.on('data', (data) => {
-                    const out = fixLogLinesNoTrailing(data.toString());
-                    traceError(out);
-                });
-                proc.onExit((code, signal) => {
-                    if (code !== 0) {
-                        traceError(
-                            `Subprocess exited unsuccessfully with exit code ${code} and signal ${signal} on workspace ${uri.fsPath}`,
-                        );
-                        this.resultResolver?.resolveDiscovery(createDiscoveryErrorPayload(code, signal, cwd));
+            if (pythonEnv) {
+                execArgs = execArgs.slice(2);
+                // === MULTI-PROJECT DISCOVERY IMPLEMENTATION ===
+                // This section implements discovery across all Python projects detected by the
+                // Python environments extension, rather than just the current workspace folder.
+                // This ensures we find tests in all related Python projects, not just the main one.
+
+                // Get the API to access all Python projects from the environments extension
+                const envExtApi = await getEnvExtApi();
+                const allProjects = envExtApi.getPythonProjects();
+
+                traceInfo(`Found ${allProjects.length} Python projects for multi-project discovery`);
+
+                // Create a set to track processed project paths to avoid running discovery
+                // multiple times on the same directory (deduplication requirement)
+                const processedProjects = new Set<string>();
+                const discoveryPromises: Promise<void>[] = [];
+
+                // Iterate through each Python project and run discovery for valid ones sequentially
+                // Sequential execution prevents payload interleaving on the shared named pipe
+                for (const project of allProjects) {
+                    const projectUri = project.uri;
+                    const projectPath = projectUri.fsPath;
+
+                    // Skip duplicates: if we've already processed this path, don't do it again
+                    // This handles cases where the same directory might be registered as multiple projects
+                    if (processedProjects.has(projectPath)) {
+                        traceVerbose(`Skipping duplicate project path: ${projectPath}`);
+                        continue;
                     }
-                    deferredTillExecClose.resolve();
-                });
-                await deferredTillExecClose.promise;
+                    processedProjects.add(projectPath);
+
+                    // Verify the project directory actually exists on disk before attempting discovery
+                    try {
+                        const projectStats = await fs.promises.stat(projectPath);
+                        if (projectStats.isDirectory()) {
+                            traceInfo(`Running pytest discovery for project: ${project.name} at ${projectPath}`);
+
+                            // Set the current project path in the result resolver
+                            this.resultResolver?.setCurrentProjectPath(projectPath);
+
+                            // Run discovery for this specific project sequentially
+                            // Each discovery completes before the next one starts, ensuring clean pipe communication
+                            await this.runSingleProjectDiscovery(
+                                projectUri,
+                                discoveryPipeName,
+                                cSource,
+                                token,
+                                pythonEnv,
+                                execArgs,
+                                mutableEnv,
+                                cwd,
+                            );
+                            discoveryPromises.push(Promise.resolve());
+                        }
+                    } catch (error) {
+                        // Project directory doesn't exist on disk, skip it gracefully
+                        traceWarn(`Project directory ${projectPath} does not exist, skipping discovery.`);
+                    }
+                }
+
+                // Fallback: If no valid projects were found, run discovery on the original URI
+                // This ensures we always run discovery somewhere, even if project detection fails
+                if (discoveryPromises.length === 0) {
+                    traceWarn('No valid Python projects found, falling back to original URI discovery');
+                    await this.runSingleProjectDiscovery(
+                        uri,
+                        discoveryPipeName,
+                        cSource,
+                        token,
+                        pythonEnv,
+                        execArgs,
+                        mutableEnv,
+                        cwd,
+                    );
+                }
+
+                // Signal the result resolver that all projects have finished discovering
+                this.resultResolver?.setCurrentProjectPath(undefined);
+                this.resultResolver?.endDiscovery();
+                return;
             } else {
                 traceError(`Python Environment not found for: ${uri.fsPath}`);
+                return;
             }
             return;
         }
@@ -221,6 +295,107 @@ export class PytestTestDiscoveryAdapter implements ITestDiscoveryAdapter {
             // due to the sync reading of the output.
             deferredTillExecClose?.resolve();
         });
+        await deferredTillExecClose.promise;
+    }
+
+    /**
+     * Runs pytest discovery for a single Python project using the Python environments extension.
+     *
+     * This method handles the execution of pytest discovery for one specific project directory.
+     * It sets up the appropriate working directory, environment variables, and executes pytest
+     * with the '--collect-only' flag to discover tests without running them.
+     *
+     * @param projectUri - The URI of the project directory to run discovery in
+     * @param discoveryPipeName - Named pipe for receiving discovery results
+     * @param cSource - Cancellation token source for handling cancellation
+     * @param executionFactory - Factory for creating Python execution services (unused in env extension mode)
+     * @param interpreter - Python interpreter info (unused in env extension mode)
+     * @param token - Cancellation token for cancelling the operation
+     * @param pythonEnv - Python environment from the environments extension
+     * @param execArgs - Arguments to pass to pytest (includes --collect-only and user args)
+     * @param mutableEnv - Environment variables for the discovery process
+     */
+    private async runSingleProjectDiscovery(
+        projectUri: Uri,
+        discoveryPipeName: string,
+        cSource: CancellationTokenSource,
+        token?: CancellationToken,
+        pythonEnv?: EnvExtPythonEnvironment,
+        execArgs?: string[],
+        mutableEnv?: { [key: string]: string | undefined },
+        workspaceCwd?: string,
+    ): Promise<void> {
+        // Use workspace-level cwd for discovery to ensure relative paths in pytest args are resolved correctly
+        // All projects discover from the same root directory
+        const projectCwd = workspaceCwd || '/';
+
+        // Clone the shared environment variables and customize for this specific project
+        // Each project gets its own copy to avoid interference between concurrent discoveries
+        const projectEnv = { ...mutableEnv };
+        projectEnv.TEST_RUN_PIPE = discoveryPipeName; // Named pipe for this discovery session
+
+        // Create a deferred promise to track when this discovery process completes
+        const deferredTillExecClose: Deferred<void> = createTestingDeferred();
+
+        // Register this promise with the result resolver so it can signal when discovery is done for this project
+        const projectKey = projectUri.fsPath;
+        this.resultResolver?.setDiscoveryPromise(projectKey, deferredTillExecClose);
+
+        traceVerbose(
+            `Running pytest discovery for project: ${projectUri.fsPath} with command: ${execArgs?.join(' ')}.`,
+        );
+
+        const finalArgs = ['-m', 'pytest', projectUri.fsPath, ...execArgs!];
+
+        // DEBUG: Log the environment and command details
+        traceInfo(`[DEBUG] Project discovery for: ${projectUri.fsPath}`);
+        traceInfo(`[DEBUG] Project discovery command args: ${JSON.stringify(finalArgs)}`);
+        traceInfo(`[DEBUG] Project discovery env vars - TEST_RUN_PIPE: ${projectEnv.TEST_RUN_PIPE}`);
+        traceInfo(`[DEBUG] Project discovery env vars - PYTHONPATH: ${projectEnv.PYTHONPATH}`);
+        traceInfo(`[DEBUG] Project discovery WORKSPACE cwd (used for all projects): ${projectCwd}`);
+
+        // Execute pytest in the background using the Python environments extension
+        // This runs: python -m pytest -p vscode_pytest --collect-only [user_args]
+        const proc = await runInBackground(pythonEnv!, {
+            cwd: projectCwd, // Working directory for this project
+            args: finalArgs, // pytest arguments including --collect-only
+            env: (projectEnv as unknown) as { [key: string]: string }, // Environment variables
+        });
+
+        // Set up cancellation handling: if the user cancels discovery, kill this project's process
+        token?.onCancellationRequested(() => {
+            traceInfo(`Test discovery cancelled, killing pytest subprocess for project ${projectUri.fsPath}`);
+            proc.kill(); // Terminate the pytest process
+            deferredTillExecClose.reject(new Error('Discovery cancelled'));
+            cSource.cancel(); // Cancel the overall discovery operation
+        });
+
+        // Monitor stdout: pytest outputs test collection information here
+        // This output is logged for debugging but the actual test data comes through the named pipe
+        proc.stdout.on('data', (data) => {
+            const out = fixLogLinesNoTrailing(data.toString());
+            traceInfo(out); // Log pytest's stdout for debugging
+        });
+
+        // Monitor stderr: pytest outputs errors and warnings here
+        proc.stderr.on('data', (data) => {
+            const out = fixLogLinesNoTrailing(data.toString());
+            traceError(out); // Log pytest's stderr for debugging
+        });
+
+        // Handle process completion: check exit code and send error payload if needed
+        proc.onExit((code, signal) => {
+            if (code !== 0) {
+                traceError(
+                    `Subprocess exited unsuccessfully with exit code ${code} and signal ${signal} on project ${projectUri.fsPath}`,
+                );
+                // Send error information back to VS Code's test explorer
+                this.resultResolver?.resolveDiscovery(createDiscoveryErrorPayload(code, signal, projectCwd));
+            }
+            // Mark this project's discovery as complete (success or failure)
+            deferredTillExecClose.resolve();
+        });
+
         await deferredTillExecClose.promise;
     }
 }
