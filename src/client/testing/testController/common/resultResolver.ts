@@ -9,14 +9,12 @@ import {
     TestMessage,
     Location,
     TestRun,
-    MarkdownString,
     TestCoverageCount,
     FileCoverage,
     FileCoverageDetail,
     StatementCoverage,
     Range,
 } from 'vscode';
-import * as util from 'util';
 import {
     CoveragePayload,
     DiscoveredTestPayload,
@@ -25,14 +23,12 @@ import {
     ITestResultResolver,
 } from './types';
 import { TestProvider } from '../../types';
-import { traceError, traceVerbose } from '../../../logging';
-import { Testing } from '../../../common/utils/localize';
-import { clearAllChildren, createErrorTestItem } from './testItemUtilities';
-import { sendTelemetryEvent } from '../../../telemetry';
-import { EventName } from '../../../telemetry/constants';
+import { traceVerbose } from '../../../logging';
+import { clearAllChildren } from './testItemUtilities';
 import { splitLines } from '../../../common/stringUtils';
-import { buildErrorNodeOptions, populateTestTree, splitTestNameWithRegex } from './utils';
+import { splitTestNameWithRegex } from './utils';
 import { TestItemIndex } from './testItemIndex';
+import { TestDiscoveryHandler } from './testDiscoveryHandler';
 
 export class PythonResultResolver implements ITestResultResolver {
     testController: TestController;
@@ -59,6 +55,9 @@ export class PythonResultResolver implements ITestResultResolver {
 
     public detailedCoverageMap = new Map<string, FileCoverageDetail[]>();
 
+    // Shared singleton handler instances (stateless, can be shared across all resolvers)
+    private static discoveryHandler: TestDiscoveryHandler = new TestDiscoveryHandler();
+
     constructor(testController: TestController, testProvider: TestProvider, private workspaceUri: Uri) {
         this.testController = testController;
         this.testProvider = testProvider;
@@ -76,51 +75,19 @@ export class PythonResultResolver implements ITestResultResolver {
     }
 
     public _resolveDiscovery(payload: DiscoveredTestPayload, token?: CancellationToken): void {
-        const workspacePath = this.workspaceUri.fsPath;
-        const rawTestData = payload as DiscoveredTestPayload;
-        // Check if there were any errors in the discovery process.
-        if (rawTestData.status === 'error') {
-            const testingErrorConst =
-                this.testProvider === 'pytest' ? Testing.errorPytestDiscovery : Testing.errorUnittestDiscovery;
-            const { error } = rawTestData;
-            traceError(testingErrorConst, 'for workspace: ', workspacePath, '\r\n', error?.join('\r\n\r\n') ?? '');
+        // Clear the testItemIndex before discovery handler processes the payload
+        // This ensures a clean state for the new discovery results
+        this.testItemIndex.clear();
 
-            let errorNode = this.testController.items.get(`DiscoveryError:${workspacePath}`);
-            const message = util.format(
-                `${testingErrorConst} ${Testing.seePythonOutput}\r\n`,
-                error?.join('\r\n\r\n') ?? '',
-            );
-
-            if (errorNode === undefined) {
-                const options = buildErrorNodeOptions(this.workspaceUri, message, this.testProvider);
-                errorNode = createErrorTestItem(this.testController, options);
-                this.testController.items.add(errorNode);
-            }
-            const errorNodeLabel: MarkdownString = new MarkdownString(
-                `[Show output](command:python.viewOutput) to view error logs`,
-            );
-            errorNodeLabel.isTrusted = true;
-            errorNode.error = errorNodeLabel;
-        } else {
-            // remove error node only if no errors exist.
-            this.testController.items.delete(`DiscoveryError:${workspacePath}`);
-        }
-        if (rawTestData.tests || rawTestData.tests === null) {
-            // if any tests exist, they should be populated in the test tree, regardless of whether there were errors or not.
-            // parse and insert test data.
-
-            // Clear existing mappings before rebuilding test tree
-            this.testItemIndex.clear();
-
-            // If the test root for this folder exists: Workspace refresh, update its children.
-            // Otherwise, it is a freshly discovered workspace, and we need to create a new test root and populate the test tree.
-            populateTestTree(this.testController, rawTestData.tests, undefined, this, token);
-        }
-
-        sendTelemetryEvent(EventName.UNITTEST_DISCOVERY_DONE, undefined, {
-            tool: this.testProvider,
-            failed: false,
-        });
+        // Delegate to the stateless discovery handler
+        PythonResultResolver.discoveryHandler.processDiscovery(
+            payload,
+            this.testController,
+            this,
+            this.workspaceUri,
+            this.testProvider,
+            token,
+        );
     }
 
     public resolveExecution(payload: ExecutionTestPayload | CoveragePayload, runInstance: TestRun): void {
