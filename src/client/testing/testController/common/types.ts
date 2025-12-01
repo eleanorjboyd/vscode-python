@@ -238,3 +238,12 @@ export type ExecutionTestPayload = {
     notFound?: string[];
     error: string;
 };
+
+/**
+ * Interface defining subtest statistics for a parent test.
+ * Used to track pass/fail counts for subtests during execution.
+ */
+export interface SubtestStats {
+    passed: number;
+    failed: number;
+}
