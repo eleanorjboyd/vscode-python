@@ -32,29 +32,39 @@ import { sendTelemetryEvent } from '../../../telemetry';
 import { EventName } from '../../../telemetry/constants';
 import { splitLines } from '../../../common/stringUtils';
 import { buildErrorNodeOptions, populateTestTree, splitTestNameWithRegex } from './utils';
+import { TestItemIndex } from './testItemIndex';
 
 export class PythonResultResolver implements ITestResultResolver {
     testController: TestController;
 
     testProvider: TestProvider;
 
-    public runIdToTestItem: Map<string, TestItem>;
-
-    public runIdToVSid: Map<string, string>;
-
-    public vsIdToRunId: Map<string, string>;
+    // Per-workspace state managed by TestItemIndex
+    private testItemIndex: TestItemIndex;
 
     public subTestStats: Map<string, { passed: number; failed: number }> = new Map();
 
     public detailedCoverageMap = new Map<string, FileCoverageDetail[]>();
 
+    // Expose maps for backward compatibility (WorkspaceTestAdapter and utils.ts access these)
+    public get runIdToTestItem(): Map<string, TestItem> {
+        return this.testItemIndex.runIdToTestItem;
+    }
+
+    public get runIdToVSid(): Map<string, string> {
+        return this.testItemIndex.runIdToVSid;
+    }
+
+    public get vsIdToRunId(): Map<string, string> {
+        return this.testItemIndex.vsIdToRunId;
+    }
+
     constructor(testController: TestController, testProvider: TestProvider, private workspaceUri: Uri) {
         this.testController = testController;
         this.testProvider = testProvider;
 
-        this.runIdToTestItem = new Map<string, TestItem>();
-        this.runIdToVSid = new Map<string, string>();
-        this.vsIdToRunId = new Map<string, string>();
+        // Create per-workspace TestItemIndex to manage ID mappings
+        this.testItemIndex = new TestItemIndex();
     }
 
     public resolveDiscovery(payload: DiscoveredTestPayload, token?: CancellationToken): void {
@@ -100,9 +110,7 @@ export class PythonResultResolver implements ITestResultResolver {
             // parse and insert test data.
 
             // Clear existing mappings before rebuilding test tree
-            this.runIdToTestItem.clear();
-            this.runIdToVSid.clear();
-            this.vsIdToRunId.clear();
+            this.testItemIndex.clear();
 
             // If the test root for this folder exists: Workspace refresh, update its children.
             // Otherwise, it is a freshly discovered workspace, and we need to create a new test root and populate the test tree.
@@ -198,74 +206,17 @@ export class PythonResultResolver implements ITestResultResolver {
      * Uses a three-tier approach: direct lookup, ID mapping, then tree search.
      */
     private findTestItemByIdEfficient(keyTemp: string): TestItem | undefined {
-        // Try direct O(1) lookup first
-        const directItem = this.runIdToTestItem.get(keyTemp);
-        if (directItem) {
-            // Validate the item is still in the test tree
-            if (this.isTestItemValid(directItem)) {
-                return directItem;
-            } else {
-                // Clean up stale reference
-                this.runIdToTestItem.delete(keyTemp);
-            }
-        }
-
-        // Try vsId mapping as fallback
-        const vsId = this.runIdToVSid.get(keyTemp);
-        if (vsId) {
-            // Search by VS Code ID in the controller
-            let foundItem: TestItem | undefined;
-            this.testController.items.forEach((item) => {
-                if (item.id === vsId) {
-                    foundItem = item;
-                    return;
-                }
-                if (!foundItem) {
-                    item.children.forEach((child) => {
-                        if (child.id === vsId) {
-                            foundItem = child;
-                        }
-                    });
-                }
-            });
-
-            if (foundItem) {
-                // Cache for future lookups
-                this.runIdToTestItem.set(keyTemp, foundItem);
-                return foundItem;
-            } else {
-                // Clean up stale mapping
-                this.runIdToVSid.delete(keyTemp);
-                this.vsIdToRunId.delete(vsId);
-            }
+        // Use TestItemIndex's getTestItem which implements the three-tier lookup strategy
+        const item = this.testItemIndex.getTestItem(keyTemp, this.testController);
+        if (item) {
+            return item;
         }
 
         // Last resort: full tree search
         traceError(`Falling back to tree search for test: ${keyTemp}`);
+        const vsId = this.testItemIndex.getVSId(keyTemp);
         const testCases = this.collectAllTestCases();
-        return testCases.find((item) => item.id === vsId);
-    }
-
-    /**
-     * Check if a TestItem is still valid (exists in the TestController tree)
-     *
-     * Time Complexity: O(depth) where depth is the maximum nesting level of the test tree.
-     * In most cases this is O(1) to O(3) since test trees are typically shallow.
-     */
-    private isTestItemValid(testItem: TestItem): boolean {
-        // Simple validation: check if the item's parent chain leads back to the controller
-        let current: TestItem | undefined = testItem;
-        while (current?.parent) {
-            current = current.parent;
-        }
-
-        // If we reached a root item, check if it's in the controller
-        if (current) {
-            return this.testController.items.get(current.id) === current;
-        }
-
-        // If no parent chain, check if it's directly in the controller
-        return this.testController.items.get(testItem.id) === testItem;
+        return testCases.find((testItem) => testItem.id === vsId);
     }
 
     /**
@@ -273,28 +224,7 @@ export class PythonResultResolver implements ITestResultResolver {
      * Validates cached items and removes any that are no longer in the test tree.
      */
     public cleanupStaleReferences(): void {
-        const staleRunIds: string[] = [];
-
-        // Check all runId->TestItem mappings
-        this.runIdToTestItem.forEach((testItem, runId) => {
-            if (!this.isTestItemValid(testItem)) {
-                staleRunIds.push(runId);
-            }
-        });
-
-        // Remove stale entries
-        staleRunIds.forEach((runId) => {
-            const vsId = this.runIdToVSid.get(runId);
-            this.runIdToTestItem.delete(runId);
-            this.runIdToVSid.delete(runId);
-            if (vsId) {
-                this.vsIdToRunId.delete(vsId);
-            }
-        });
-
-        if (staleRunIds.length > 0) {
-            traceVerbose(`Cleaned up ${staleRunIds.length} stale test item references`);
-        }
+        this.testItemIndex.cleanupStaleReferences(this.testController);
     }
 
     /**
