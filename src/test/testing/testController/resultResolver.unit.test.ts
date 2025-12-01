@@ -91,16 +91,17 @@ suite('Result Resolver tests', () => {
             resultResolver.resolveDiscovery(payload, cancelationToken);
 
             // assert the stub functions were called with the correct parameters
-
-            // header of populateTestTree is (testController: TestController, testTreeData: DiscoveredTestNode, testRoot: TestItem | undefined, resultResolver: ITestResultResolver, token?: CancellationToken)
-            sinon.assert.calledWithMatch(
-                populateTestTreeStub,
-                testController, // testController
-                tests, // testTreeData
-                undefined, // testRoot
-                resultResolver, // resultResolver
-                cancelationToken, // token
-            );
+            // populateTestTree now receives an ITestIdMaps shim instead of the full resultResolver
+            sinon.assert.calledOnce(populateTestTreeStub);
+            const callArgs = populateTestTreeStub.firstCall.args;
+            assert.strictEqual(callArgs[0], testController); // testController
+            assert.deepStrictEqual(callArgs[1], tests); // testTreeData
+            assert.strictEqual(callArgs[2], undefined); // testRoot
+            // callArgs[3] is the ITestIdMaps shim with the map references
+            assert.ok(callArgs[3].runIdToTestItem instanceof Map);
+            assert.ok(callArgs[3].runIdToVSid instanceof Map);
+            assert.ok(callArgs[3].vsIdToRunId instanceof Map);
+            assert.strictEqual(callArgs[4], cancelationToken); // token
         });
         test('resolveDiscovery should create error node on error with correct params and no root node with tests in payload', async () => {
             // test specific constants used expected values
@@ -182,14 +183,17 @@ suite('Result Resolver tests', () => {
             sinon.assert.calledWithMatch(createErrorTestItemStub, sinon.match.any, sinon.match.any);
 
             // also calls populateTestTree with the discovery test results
-            sinon.assert.calledWithMatch(
-                populateTestTreeStub,
-                testController, // testController
-                tests, // testTreeData
-                undefined, // testRoot
-                resultResolver, // resultResolver
-                cancelationToken, // token
-            );
+            // populateTestTree now receives an ITestIdMaps shim instead of the full resultResolver
+            sinon.assert.calledOnce(populateTestTreeStub);
+            const callArgs = populateTestTreeStub.firstCall.args;
+            assert.strictEqual(callArgs[0], testController); // testController
+            assert.deepStrictEqual(callArgs[1], tests); // testTreeData
+            assert.strictEqual(callArgs[2], undefined); // testRoot
+            // callArgs[3] is the ITestIdMaps shim with the map references
+            assert.ok(callArgs[3].runIdToTestItem instanceof Map);
+            assert.ok(callArgs[3].runIdToVSid instanceof Map);
+            assert.ok(callArgs[3].vsIdToRunId instanceof Map);
+            assert.strictEqual(callArgs[4], cancelationToken); // token
         });
         test('resolveDiscovery should create error and not clear test items to allow for error tolerant discovery', async () => {
             // test specific constants used expected values
