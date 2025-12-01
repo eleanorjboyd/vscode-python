@@ -2,19 +2,14 @@
 // Licensed under the MIT License.
 
 import { TestController, TestMessage, Location, TestRun } from 'vscode';
-import { ExecutionTestPayload, ITestResultResolver } from './types';
+import { ExecutionTestPayload, ITestResultResolver, SubtestStats } from './types';
 import { splitLines } from '../../../common/stringUtils';
 import { splitTestNameWithRegex } from './utils';
 import { clearAllChildren } from './testItemUtilities';
 import { TestItemIndex } from './testItemIndex';
 
-/**
- * Interface defining subtest statistics for a parent test
- */
-export interface SubtestStats {
-    passed: number;
-    failed: number;
-}
+// Re-export SubtestStats for backward compatibility
+export { SubtestStats } from './types';
 
 /**
  * TestExecutionHandler - Stateless processor for test execution payloads.
@@ -166,13 +161,9 @@ export class TestExecutionHandler {
         testItemIndex: TestItemIndex,
         testController: TestController,
     ): void {
-        const grabTestItem = testItemIndex.runIdToTestItem.get(runId);
-
-        if (grabTestItem !== undefined) {
-            const foundItem = testItemIndex.getTestItem(runId, testController);
-            if (foundItem?.uri) {
-                runInstance.passed(grabTestItem);
-            }
+        const foundItem = testItemIndex.getTestItem(runId, testController);
+        if (foundItem?.uri) {
+            runInstance.passed(foundItem);
         }
     }
 
@@ -185,13 +176,9 @@ export class TestExecutionHandler {
         testItemIndex: TestItemIndex,
         testController: TestController,
     ): void {
-        const grabTestItem = testItemIndex.runIdToTestItem.get(runId);
-
-        if (grabTestItem !== undefined) {
-            const foundItem = testItemIndex.getTestItem(runId, testController);
-            if (foundItem?.uri) {
-                runInstance.skipped(grabTestItem);
-            }
+        const foundItem = testItemIndex.getTestItem(runId, testController);
+        if (foundItem?.uri) {
+            runInstance.skipped(foundItem);
         }
     }
 

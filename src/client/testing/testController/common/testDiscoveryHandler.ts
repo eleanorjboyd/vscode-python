@@ -62,12 +62,8 @@ export class TestDiscoveryHandler {
             // If any tests exist, they should be populated in the test tree,
             // regardless of whether there were errors or not.
             // Parse and insert test data.
-
-            // Clear existing mappings before rebuilding test tree
-            // The maps are accessed via resultResolver's getters which delegate to TestItemIndex
-            resultResolver.runIdToTestItem.clear();
-            resultResolver.runIdToVSid.clear();
-            resultResolver.vsIdToRunId.clear();
+            // Note: The testItemIndex is cleared by the caller (PythonResultResolver._resolveDiscovery)
+            // before calling this handler, so we don't need to clear it here.
 
             // If the test root for this folder exists: Workspace refresh, update its children.
             // Otherwise, it is a freshly discovered workspace, and we need to create a new test root

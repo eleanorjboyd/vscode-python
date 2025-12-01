@@ -4,13 +4,8 @@
 import { TestController, TestItem } from 'vscode';
 import { traceError, traceVerbose } from '../../../logging';
 
-/**
- * Interface defining subtest statistics for a parent test
- */
-export interface SubtestStats {
-    passed: number;
-    failed: number;
-}
+// Re-export SubtestStats from types for backward compatibility
+export { SubtestStats } from './types';
 
 /**
  * TestItemIndex - Manages persistent ID mappings between Python test IDs and VS Code TestItems.
