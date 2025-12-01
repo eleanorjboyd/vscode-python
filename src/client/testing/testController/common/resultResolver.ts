@@ -6,8 +6,6 @@ import {
     TestController,
     TestItem,
     Uri,
-    TestMessage,
-    Location,
     TestRun,
     TestCoverageCount,
     FileCoverage,
@@ -24,11 +22,9 @@ import {
 } from './types';
 import { TestProvider } from '../../types';
 import { traceVerbose } from '../../../logging';
-import { clearAllChildren } from './testItemUtilities';
-import { splitLines } from '../../../common/stringUtils';
-import { splitTestNameWithRegex } from './utils';
 import { TestItemIndex } from './testItemIndex';
 import { TestDiscoveryHandler } from './testDiscoveryHandler';
+import { TestExecutionHandler } from './testExecutionHandler';
 
 export class PythonResultResolver implements ITestResultResolver {
     testController: TestController;
@@ -46,6 +42,12 @@ export class PythonResultResolver implements ITestResultResolver {
      * Stateless - can be safely shared across all resolvers.
      */
     private static discoveryHandler: TestDiscoveryHandler = new TestDiscoveryHandler();
+
+    /**
+     * Shared singleton handler for execution processing.
+     * Stateless - can be safely shared across all resolvers.
+     */
+    private static executionHandler: TestExecutionHandler = new TestExecutionHandler();
 
     /**
      * Expose runIdToTestItem for backward compatibility.
@@ -170,14 +172,6 @@ export class PythonResultResolver implements ITestResultResolver {
     }
 
     /**
-     * Find a test item efficiently using cached maps with fallback strategies.
-     * Delegates to TestItemIndex.getTestItem() for the actual lookup logic.
-     */
-    private findTestItemByIdEfficient(keyTemp: string): TestItem | undefined {
-        return this.testItemIndex.getTestItem(keyTemp, this.testController);
-    }
-
-    /**
      * Clean up stale test item references from the cache maps.
      * Delegates to TestItemIndex.cleanupStaleReferences() for the cleanup logic.
      */
@@ -186,173 +180,26 @@ export class PythonResultResolver implements ITestResultResolver {
     }
 
     /**
-     * Handle test items that errored during execution.
-     * Extracts error details, finds the corresponding TestItem, and reports the error to VS Code's Test Explorer.
-     */
-    private handleTestError(keyTemp: string, testItem: any, runInstance: TestRun): void {
-        const rawTraceback = testItem.traceback ?? '';
-        const traceback = splitLines(rawTraceback, {
-            trim: false,
-            removeEmptyEntries: true,
-        }).join('\r\n');
-        const text = `${testItem.test} failed with error: ${testItem.message ?? testItem.outcome}\r\n${traceback}`;
-        const message = new TestMessage(text);
-
-        const foundItem = this.findTestItemByIdEfficient(keyTemp);
-
-        if (foundItem?.uri) {
-            if (foundItem.range) {
-                message.location = new Location(foundItem.uri, foundItem.range);
-            }
-            runInstance.errored(foundItem, message);
-        }
-    }
-
-    /**
-     * Handle test items that failed during execution
-     */
-    private handleTestFailure(keyTemp: string, testItem: any, runInstance: TestRun): void {
-        const rawTraceback = testItem.traceback ?? '';
-        const traceback = splitLines(rawTraceback, {
-            trim: false,
-            removeEmptyEntries: true,
-        }).join('\r\n');
-
-        const text = `${testItem.test} failed: ${testItem.message ?? testItem.outcome}\r\n${traceback}`;
-        const message = new TestMessage(text);
-
-        const foundItem = this.findTestItemByIdEfficient(keyTemp);
-
-        if (foundItem?.uri) {
-            if (foundItem.range) {
-                message.location = new Location(foundItem.uri, foundItem.range);
-            }
-            runInstance.failed(foundItem, message);
-        }
-    }
-
-    /**
-     * Handle test items that passed during execution
-     */
-    private handleTestSuccess(keyTemp: string, runInstance: TestRun): void {
-        const grabTestItem = this.runIdToTestItem.get(keyTemp);
-
-        if (grabTestItem !== undefined) {
-            const foundItem = this.findTestItemByIdEfficient(keyTemp);
-            if (foundItem?.uri) {
-                runInstance.passed(grabTestItem);
-            }
-        }
-    }
-
-    /**
-     * Handle test items that were skipped during execution
-     */
-    private handleTestSkipped(keyTemp: string, runInstance: TestRun): void {
-        const grabTestItem = this.runIdToTestItem.get(keyTemp);
-
-        if (grabTestItem !== undefined) {
-            const foundItem = this.findTestItemByIdEfficient(keyTemp);
-            if (foundItem?.uri) {
-                runInstance.skipped(grabTestItem);
-            }
-        }
-    }
-
-    /**
-     * Handle subtest failures
-     */
-    private handleSubtestFailure(keyTemp: string, testItem: any, runInstance: TestRun): void {
-        const [parentTestCaseId, subtestId] = splitTestNameWithRegex(keyTemp);
-        const parentTestItem = this.runIdToTestItem.get(parentTestCaseId);
-
-        if (parentTestItem) {
-            const subtestStats = this.subTestStats.get(parentTestCaseId);
-            if (subtestStats) {
-                subtestStats.failed += 1;
-            } else {
-                this.subTestStats.set(parentTestCaseId, {
-                    failed: 1,
-                    passed: 0,
-                });
-                clearAllChildren(parentTestItem);
-            }
-
-            const subTestItem = this.testController?.createTestItem(subtestId, subtestId, parentTestItem.uri);
-
-            if (subTestItem) {
-                const traceback = testItem.traceback ?? '';
-                const text = `${testItem.subtest} failed: ${testItem.message ?? testItem.outcome}\r\n${traceback}`;
-                parentTestItem.children.add(subTestItem);
-                runInstance.started(subTestItem);
-                const message = new TestMessage(text);
-                if (parentTestItem.uri && parentTestItem.range) {
-                    message.location = new Location(parentTestItem.uri, parentTestItem.range);
-                }
-                runInstance.failed(subTestItem, message);
-            } else {
-                throw new Error('Unable to create new child node for subtest');
-            }
-        } else {
-            throw new Error('Parent test item not found');
-        }
-    }
-
-    /**
-     * Handle subtest successes
-     */
-    private handleSubtestSuccess(keyTemp: string, runInstance: TestRun): void {
-        const [parentTestCaseId, subtestId] = splitTestNameWithRegex(keyTemp);
-        const parentTestItem = this.runIdToTestItem.get(parentTestCaseId);
-
-        if (parentTestItem) {
-            const subtestStats = this.subTestStats.get(parentTestCaseId);
-            if (subtestStats) {
-                subtestStats.passed += 1;
-            } else {
-                this.subTestStats.set(parentTestCaseId, { failed: 0, passed: 1 });
-                clearAllChildren(parentTestItem);
-            }
-
-            const subTestItem = this.testController?.createTestItem(subtestId, subtestId, parentTestItem.uri);
-
-            if (subTestItem) {
-                parentTestItem.children.add(subTestItem);
-                runInstance.started(subTestItem);
-                runInstance.passed(subTestItem);
-            } else {
-                throw new Error('Unable to create new child node for subtest');
-            }
-        } else {
-            throw new Error('Parent test item not found');
-        }
-    }
-
-    /**
-     * Process test execution results and update VS Code's Test Explorer with outcomes.
-     * Uses efficient lookup methods to handle large numbers of test results.
+     * Process test execution results by delegating to the stateless TestExecutionHandler.
+     * Merges returned subtest statistics into this resolver's subTestStats map.
      */
     public _resolveExecution(payload: ExecutionTestPayload, runInstance: TestRun): void {
-        const rawTestExecData = payload as ExecutionTestPayload;
-        if (rawTestExecData !== undefined && rawTestExecData.result !== undefined) {
-            for (const keyTemp of Object.keys(rawTestExecData.result)) {
-                const testItem = rawTestExecData.result[keyTemp];
+        const newStats = PythonResultResolver.executionHandler.processExecution(
+            payload,
+            runInstance,
+            this.testItemIndex,
+            this.testController,
+        );
 
-                // Delegate to specific outcome handlers using efficient lookups
-                if (testItem.outcome === 'error') {
-                    this.handleTestError(keyTemp, testItem, runInstance);
-                } else if (testItem.outcome === 'failure' || testItem.outcome === 'passed-unexpected') {
-                    this.handleTestFailure(keyTemp, testItem, runInstance);
-                } else if (testItem.outcome === 'success' || testItem.outcome === 'expected-failure') {
-                    this.handleTestSuccess(keyTemp, runInstance);
-                } else if (testItem.outcome === 'skipped') {
-                    this.handleTestSkipped(keyTemp, runInstance);
-                } else if (testItem.outcome === 'subtest-failure') {
-                    this.handleSubtestFailure(keyTemp, testItem, runInstance);
-                } else if (testItem.outcome === 'subtest-success') {
-                    this.handleSubtestSuccess(keyTemp, runInstance);
-                }
+        // Merge the returned subtest stats into our persistent map
+        newStats.forEach((stats, parentId) => {
+            const existing = this.subTestStats.get(parentId);
+            if (existing) {
+                existing.passed += stats.passed;
+                existing.failed += stats.failed;
+            } else {
+                this.subTestStats.set(parentId, stats);
             }
-        }
+        });
     }
 }
