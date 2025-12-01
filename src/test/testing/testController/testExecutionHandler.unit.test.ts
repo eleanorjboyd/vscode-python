@@ -248,12 +248,8 @@ suite('TestExecutionHandler tests', () => {
             testItemIndex.registerTestItem('parentTest', 'parentTest', mockTestItem2);
             testItemIndex.registerTestItem(subtestName, subtestName, mockSubtestItem);
 
-            let generatedId: string | undefined;
             testControllerMock
                 .setup((t) => t.createTestItem(typemoq.It.isAny(), typemoq.It.isAny(), typemoq.It.isAny()))
-                .callback((id: string) => {
-                    generatedId = id;
-                })
                 .returns(() => ({ id: 'id_this', label: 'label_this', uri: workspaceUri } as TestItem));
 
             const subtestPayload: ExecutionTestPayload = {
