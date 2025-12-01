@@ -142,10 +142,16 @@ export type TestCommandOptions = {
 //     triggerRunDataReceivedEvent(data: DataReceivedEvent): void;
 //     triggerDiscoveryDataReceivedEvent(data: DataReceivedEvent): void;
 // }
-export interface ITestResultResolver {
+/**
+ * Minimal interface for ID mappings used by populateTestTree.
+ * This is separate from ITestResultResolver to support stateless handlers.
+ */
+export interface ITestIdMaps {
     runIdToVSid: Map<string, string>;
     runIdToTestItem: Map<string, TestItem>;
     vsIdToRunId: Map<string, string>;
+}
+export interface ITestResultResolver extends ITestIdMaps {
     detailedCoverageMap: Map<string, FileCoverageDetail[]>;
 
     resolveDiscovery(payload: DiscoveredTestPayload, token?: CancellationToken): void;
