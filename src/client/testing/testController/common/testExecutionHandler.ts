@@ -176,13 +176,9 @@ export class TestExecutionHandler {
         testItemIndex: TestItemIndex,
         testController: TestController,
     ): void {
-        const grabTestItem = testItemIndex.runIdToTestItem.get(keyTemp);
-
-        if (grabTestItem !== undefined) {
-            const foundItem = this.findTestItemByIdEfficient(keyTemp, testItemIndex, testController);
-            if (foundItem?.uri) {
-                runInstance.passed(grabTestItem);
-            }
+        const foundItem = this.findTestItemByIdEfficient(keyTemp, testItemIndex, testController);
+        if (foundItem?.uri) {
+            runInstance.passed(foundItem);
         }
     }
 
@@ -195,13 +191,9 @@ export class TestExecutionHandler {
         testItemIndex: TestItemIndex,
         testController: TestController,
     ): void {
-        const grabTestItem = testItemIndex.runIdToTestItem.get(keyTemp);
-
-        if (grabTestItem !== undefined) {
-            const foundItem = this.findTestItemByIdEfficient(keyTemp, testItemIndex, testController);
-            if (foundItem?.uri) {
-                runInstance.skipped(grabTestItem);
-            }
+        const foundItem = this.findTestItemByIdEfficient(keyTemp, testItemIndex, testController);
+        if (foundItem?.uri) {
+            runInstance.skipped(foundItem);
         }
     }
 

@@ -102,17 +102,19 @@ export class TestItemIndex {
             // Search by VS Code ID in the controller
             let foundItem: TestItem | undefined;
             testController.items.forEach((item) => {
+                if (foundItem) {
+                    return; // Already found, skip remaining iterations
+                }
                 if (item.id === vsId) {
                     foundItem = item;
                     return;
                 }
-                if (!foundItem) {
-                    item.children.forEach((child) => {
-                        if (child.id === vsId) {
-                            foundItem = child;
-                        }
-                    });
-                }
+                // Search children only if not found at top level
+                item.children.forEach((child) => {
+                    if (!foundItem && child.id === vsId) {
+                        foundItem = child;
+                    }
+                });
             });
 
             if (foundItem) {
