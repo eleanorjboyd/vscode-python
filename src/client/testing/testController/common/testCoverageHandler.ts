@@ -1,15 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-import {
-    FileCoverage,
-    FileCoverageDetail,
-    Range,
-    StatementCoverage,
-    TestCoverageCount,
-    TestRun,
-    Uri,
-} from 'vscode';
+import { FileCoverage, FileCoverageDetail, Range, StatementCoverage, TestCoverageCount, TestRun, Uri } from 'vscode';
 import { CoveragePayload, FileCoverageMetrics } from './types';
 
 /**

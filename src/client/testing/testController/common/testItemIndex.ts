@@ -100,42 +100,59 @@ export class TestItemIndex {
             this._runIdToTestItem.delete(runId);
         }
 
-        // Try vsId mapping as fallback
+        // Get vsId for fallback strategies
         const vsId = this._runIdToVSid.get(runId);
-        if (vsId) {
-            // Search by VS Code ID in the controller
-            let foundItem: TestItem | undefined;
-            testController.items.forEach((item) => {
-                if (item.id === vsId) {
-                    foundItem = item;
-                    return;
-                }
-                if (!foundItem) {
-                    item.children.forEach((child) => {
-                        if (child.id === vsId) {
-                            foundItem = child;
-                        }
-                    });
-                }
-            });
-
-            if (foundItem) {
-                // Cache for future lookups
-                this._runIdToTestItem.set(runId, foundItem);
-                return foundItem;
-            }
-            // Clean up stale mapping
-            this._runIdToVSid.delete(runId);
-            this._vsIdToRunId.delete(vsId);
-        }
-
-        // Last resort: full tree search (only if we have a vsId to search for)
-        if (vsId === undefined) {
+        if (!vsId) {
+            // No mapping exists at all
             return undefined;
         }
+
+        // Try vsId mapping - search the tree recursively for this ID
+        const foundItem = this.findTestItemById(testController, vsId);
+
+        if (foundItem) {
+            // Cache for future lookups
+            this._runIdToTestItem.set(runId, foundItem);
+            return foundItem;
+        }
+
+        // Clean up stale mapping since the item was not found
+        this._runIdToVSid.delete(runId);
+        this._vsIdToRunId.delete(vsId);
+
+        // Last resort: full tree search - if ID wasn't found by exact match,
+        // fall back to searching all test cases
         traceError(`Falling back to tree search for test: ${runId}`);
         const testCases = this.collectAllTestCases(testController);
         return testCases.find((item) => item.id === vsId);
+    }
+
+    /**
+     * Find a TestItem by ID, recursively searching the tree.
+     */
+    private findTestItemById(testController: TestController, targetId: string): TestItem | undefined {
+        let result: TestItem | undefined;
+
+        const searchInChildren = (item: TestItem): void => {
+            if (result) return;
+            if (item.id === targetId) {
+                result = item;
+                return;
+            }
+            item.children.forEach((child) => {
+                if (!result) {
+                    searchInChildren(child);
+                }
+            });
+        };
+
+        testController.items.forEach((item) => {
+            if (!result) {
+                searchInChildren(item);
+            }
+        });
+
+        return result;
     }
 
     /**
@@ -235,24 +252,19 @@ export class TestItemIndex {
      */
     private collectAllTestCases(testController: TestController): TestItem[] {
         const testCases: TestItem[] = [];
-        const getTestCaseNodes = (item: TestItem): TestItem[] => {
-            const nodes: TestItem[] = [];
+        const collectTestCaseNodes = (item: TestItem): void => {
+            // If item cannot resolve children (is a leaf node) and has tags, it's a test case
             if (!item.canResolveChildren && item.tags.length > 0) {
-                nodes.push(item);
+                testCases.push(item);
             }
+            // Recursively traverse children regardless
             item.children.forEach((child) => {
-                if (item.canResolveChildren) {
-                    nodes.push(...getTestCaseNodes(child));
-                } else {
-                    nodes.push(item);
-                }
+                collectTestCaseNodes(child);
             });
-            return nodes;
         };
 
-        testController.items.forEach((i) => {
-            const tempArr = getTestCaseNodes(i);
-            testCases.push(...tempArr);
+        testController.items.forEach((item) => {
+            collectTestCaseNodes(item);
         });
 
         return testCases;
