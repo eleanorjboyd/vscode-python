@@ -16,11 +16,17 @@ from typing import (
     Dict,
     Generator,
     Literal,
-    NotRequired,
     Protocol,
     TypedDict,
     cast,
 )
+
+# NotRequired is only available in typing from Python 3.11+
+# For earlier versions, use typing_extensions
+try:
+    from typing import NotRequired
+except ImportError:
+    from typing_extensions import NotRequired
 
 import pytest
 

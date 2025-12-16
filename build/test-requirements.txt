@@ -28,6 +28,9 @@ namedpipe; platform_system == "Windows"
 # typing for Django files
 django-stubs
 
+# Required for NotRequired import in adapter modules
+typing_extensions
+
 coverage
 pytest-cov
 pytest-json
