@@ -500,6 +500,68 @@ suite('Workspace test adapter', () => {
             assert.strictEqual(telemetryEvent.length, 1);
         });
     });
+
+    suite('Project integration', () => {
+        let stubConfigSettings: IConfigurationService;
+        let stubResultResolver: ITestResultResolver;
+
+        setup(() => {
+            stubConfigSettings = ({
+                getSettings: () => ({
+                    testing: { unittestArgs: ['--foo'] },
+                }),
+            } as unknown) as IConfigurationService;
+
+            stubResultResolver = ({
+                resolveDiscovery: () => {
+                    // no body
+                },
+                resolveExecution: () => {
+                    // no body
+                },
+            } as unknown) as ITestResultResolver;
+        });
+
+        test('WorkspaceTestAdapter can be created without a project', () => {
+            const testDiscoveryAdapter = new UnittestTestDiscoveryAdapter(stubConfigSettings);
+            const testExecutionAdapter = new UnittestTestExecutionAdapter(stubConfigSettings);
+            const uriFoo = Uri.parse('foo');
+            
+            const workspaceTestAdapter = new WorkspaceTestAdapter(
+                'unittest',
+                testDiscoveryAdapter,
+                testExecutionAdapter,
+                uriFoo,
+                stubResultResolver,
+            );
+
+            assert.strictEqual(workspaceTestAdapter.getProject(), undefined);
+        });
+
+        test('WorkspaceTestAdapter can be created with a project', () => {
+            const testDiscoveryAdapter = new UnittestTestDiscoveryAdapter(stubConfigSettings);
+            const testExecutionAdapter = new UnittestTestExecutionAdapter(stubConfigSettings);
+            const uriFoo = Uri.parse('foo');
+            const mockProject = {
+                name: 'test-project',
+                uri: uriFoo,
+            };
+            
+            const workspaceTestAdapter = new WorkspaceTestAdapter(
+                'unittest',
+                testDiscoveryAdapter,
+                testExecutionAdapter,
+                uriFoo,
+                stubResultResolver,
+                mockProject,
+            );
+
+            const project = workspaceTestAdapter.getProject();
+            assert.ok(project);
+            assert.strictEqual(project.name, 'test-project');
+            assert.strictEqual(project.uri, uriFoo);
+        });
+    });
 });
 
 function createMockTestItem(id: string): TestItem {
