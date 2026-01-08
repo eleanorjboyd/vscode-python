@@ -52,7 +52,8 @@ import { ITestDebugLauncher } from '../common/types';
 import { PythonResultResolver } from './common/resultResolver';
 import { onDidSaveTextDocument } from '../../common/vscodeApis/workspaceApis';
 import { IEnvironmentVariablesProvider } from '../../common/variables/types';
-import { findProjectRoots, ProjectRoot, isFileInProject } from './common/projectRootFinder';
+import { useEnvExtension, getEnvExtApi } from '../../envExt/api.internal';
+import { PythonProject } from '../../envExt/types';
 
 // Types gymnastics to make sure that sendTriggerTelemetry only accepts the correct types.
 type EventPropertyType = IEventNamePropertyMapping[EventName.UNITTEST_DISCOVERY_TRIGGER];
@@ -60,18 +61,18 @@ type TriggerKeyType = keyof EventPropertyType;
 type TriggerType = EventPropertyType[TriggerKeyType];
 
 /**
- * Represents a project-specific test adapter with its project root information
+ * Represents a project-specific test adapter with its project information
  */
 interface ProjectTestAdapter {
     adapter: WorkspaceTestAdapter;
-    projectRoot: ProjectRoot;
+    project: PythonProject;
 }
 
 @injectable()
 export class PythonTestController implements ITestController, IExtensionSingleActivationService {
     public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: false };
 
-    // Map of workspace URI -> array of project-specific test adapters
+    // Map of workspace URI string -> array of project-specific test adapters
     private readonly testAdapters: Map<string, ProjectTestAdapter[]> = new Map();
 
     private readonly triggerTypes: TriggerType[] = [];
@@ -186,22 +187,15 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
     }
 
     /**
-     * Creates a test adapter for a specific project root within a workspace.
-     * @param _workspaceUri The workspace folder URI (for future use)
-     * @param projectRoot The project root to create adapter for
+     * Creates a test adapter for a specific project within a workspace.
+     * @param project The project to create adapter for
      * @param testProvider The test provider (pytest or unittest)
      * @returns A ProjectTestAdapter instance
      */
-    private createProjectAdapter(
-        _workspaceUri: Uri,
-        projectRoot: ProjectRoot,
-        testProvider: TestProvider,
-    ): ProjectTestAdapter {
-        traceVerbose(
-            `Creating ${testProvider} adapter for project at ${projectRoot.uri.fsPath} (marker: ${projectRoot.markerFile})`,
-        );
+    private createProjectAdapter(project: PythonProject, testProvider: TestProvider): ProjectTestAdapter {
+        traceVerbose(`Creating ${testProvider} adapter for project at ${project.uri.fsPath}`);
 
-        const resultResolver = new PythonResultResolver(this.testController, testProvider, projectRoot.uri);
+        const resultResolver = new PythonResultResolver(this.testController, testProvider, project.uri);
 
         let discoveryAdapter: ITestDiscoveryAdapter;
         let executionAdapter: ITestExecutionAdapter;
@@ -234,13 +228,13 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
             testProvider,
             discoveryAdapter,
             executionAdapter,
-            projectRoot.uri, // Use project root URI instead of workspace URI
+            project.uri, // Use project URI instead of workspace URI
             resultResolver,
         );
 
         return {
             adapter: workspaceTestAdapter,
-            projectRoot,
+            project,
         };
     }
 
@@ -339,32 +333,59 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
 
     /**
      * Discovers tests for a specific test provider (pytest or unittest).
-     * Detects all project roots within the workspace and runs discovery for each project.
+     * Detects all projects within the workspace and runs discovery for each project.
      */
     private async discoverTestsForProvider(workspaceUri: Uri, expectedProvider: TestProvider): Promise<void> {
         const workspaceKey = workspaceUri.toString();
 
-        // Step 1: Detect all project roots in the workspace
-        traceVerbose(`Detecting ${expectedProvider} projects in workspace: ${workspaceUri.fsPath}`);
-        const projectRoots = await findProjectRoots(workspaceUri, expectedProvider);
-        traceVerbose(`Found ${projectRoots.length} project(s) in workspace ${workspaceUri.fsPath}`);
+        // Step 1: Get Python projects from the environment extension
+        let projects: PythonProject[] = [];
+        
+        if (useEnvExtension()) {
+            try {
+                const envExtApi = await getEnvExtApi();
+                const allProjects = envExtApi.getPythonProjects();
+                
+                // Filter projects that belong to this workspace
+                projects = allProjects.filter((project) => {
+                    const projectWorkspace = this.workspaceService.getWorkspaceFolder(project.uri);
+                    return projectWorkspace?.uri.toString() === workspaceKey;
+                });
+                
+                traceVerbose(`Found ${projects.length} Python project(s) in workspace ${workspaceUri.fsPath}`);
+            } catch (error) {
+                traceError(`Error getting projects from environment extension: ${error}`);
+                // Fall back to using workspace as single project
+                projects = [];
+            }
+        }
+
+        // If no projects found or env extension not available, treat workspace as single project
+        if (projects.length === 0) {
+            traceVerbose(`No projects detected, using workspace root as single project: ${workspaceUri.fsPath}`);
+            projects = [{
+                name: this.workspaceService.getWorkspaceFolder(workspaceUri)?.name || 'workspace',
+                uri: workspaceUri,
+            }];
+        }
 
         // Step 2: Create or reuse adapters for each project
         const existingAdapters = this.testAdapters.get(workspaceKey) || [];
         const newAdapters: ProjectTestAdapter[] = [];
 
-        for (const projectRoot of projectRoots) {
+        for (const project of projects) {
             // Check if we already have an adapter for this project
             const existingAdapter = existingAdapters.find(
-                (a) => a.projectRoot.uri.fsPath === projectRoot.uri.fsPath && a.adapter.getTestProvider() === expectedProvider,
+                (a) => a.project.uri.toString() === project.uri.toString() && 
+                       a.adapter.getTestProvider() === expectedProvider,
             );
 
             if (existingAdapter) {
-                traceVerbose(`Reusing existing adapter for project at ${projectRoot.uri.fsPath}`);
+                traceVerbose(`Reusing existing adapter for project at ${project.uri.fsPath}`);
                 newAdapters.push(existingAdapter);
             } else {
                 // Create new adapter for this project
-                const projectAdapter = this.createProjectAdapter(workspaceUri, projectRoot, expectedProvider);
+                const projectAdapter = this.createProjectAdapter(project, expectedProvider);
                 newAdapters.push(projectAdapter);
             }
         }
@@ -375,10 +396,8 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
         // Step 3: Run discovery for each project
         const interpreter = await this.interpreterService.getActiveInterpreter(workspaceUri);
         await Promise.all(
-            newAdapters.map(async ({ adapter, projectRoot }) => {
-                traceVerbose(
-                    `Running ${expectedProvider} discovery for project at ${projectRoot.uri.fsPath}`,
-                );
+            newAdapters.map(async ({ adapter, project }) => {
+                traceVerbose(`Running ${expectedProvider} discovery for project at ${project.uri.fsPath}`);
                 try {
                     await adapter.discoverTests(
                         this.testController,
@@ -387,13 +406,10 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
                         interpreter,
                     );
                 } catch (error) {
-                    traceError(
-                        `Error during ${expectedProvider} discovery for project at ${projectRoot.uri.fsPath}:`,
-                        error,
-                    );
+                    traceError(`Error during ${expectedProvider} discovery for project at ${project.uri.fsPath}:`, error);
                     this.surfaceErrorNode(
-                        projectRoot.uri,
-                        `Error discovering tests in project at ${projectRoot.uri.fsPath}: ${error}`,
+                        project.uri,
+                        `Error discovering tests in project at ${project.uri.fsPath}: ${error}`,
                         expectedProvider,
                     );
                 }
@@ -508,6 +524,9 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
 
     /**
      * Runs tests for a single workspace.
+     */
+    /**
+     * Runs tests for a single workspace.
      * Groups tests by project and executes them using the appropriate project adapter.
      */
     private async runTestsForWorkspace(
@@ -548,16 +567,17 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
         const testItemsByProject = new Map<string, TestItem[]>();
         for (const testItem of testItems) {
             // Find which project this test belongs to
-            const projectAdapter = projectAdapters.find(({ projectRoot }) => {
+            const projectAdapter = projectAdapters.find(({ project }) => {
                 const testPath = testItem.uri?.fsPath;
                 if (!testPath) {
                     return false;
                 }
-                return isFileInProject(testPath, projectRoot);
+                // Check if test path is within project path
+                return testPath === project.uri.fsPath || testPath.startsWith(project.uri.fsPath + '/');
             });
 
             if (projectAdapter) {
-                const projectKey = projectAdapter.projectRoot.uri.fsPath;
+                const projectKey = projectAdapter.project.uri.toString();
                 if (!testItemsByProject.has(projectKey)) {
                     testItemsByProject.set(projectKey, []);
                 }
@@ -572,7 +592,7 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
         await Promise.all(
             Array.from(testItemsByProject.entries()).map(async ([projectPath, projectTestItems]) => {
                 const projectAdapter = projectAdapters.find(
-                    ({ projectRoot }) => projectRoot.uri.fsPath === projectPath,
+                    ({ project }) => project.uri.toString() === projectPath,
                 );
 
                 if (!projectAdapter) {
