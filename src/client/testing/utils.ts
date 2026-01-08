@@ -7,7 +7,7 @@ export async function writeTestIdToClipboard(testItem: TestItem): Promise<void> 
             // Convert the id to a module.class.method format as this is a unittest
             const moduleClassMethod = idToModuleClassMethod(testItem.id);
             if (moduleClassMethod) {
-                await env.clipboard.writeText(moduleClassMethod);
+                await clipboardWriteText(moduleClassMethod);
                 traceLog('Testing: Copied test id to clipboard, id: ' + moduleClassMethod);
                 return;
             }
