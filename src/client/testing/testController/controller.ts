@@ -62,7 +62,7 @@ type TriggerType = EventPropertyType[TriggerKeyType];
 export class PythonTestController implements ITestController, IExtensionSingleActivationService {
     public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: false };
 
-    private readonly testAdapters: Map<Uri, WorkspaceTestAdapter> = new Map();
+    private readonly testAdapters: Map<string, WorkspaceTestAdapter> = new Map();
 
     private readonly triggerTypes: TriggerType[] = [];
 
@@ -206,7 +206,7 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
                 resultResolver,
             );
 
-            this.testAdapters.set(workspace.uri, workspaceTestAdapter);
+            this.testAdapters.set(workspace.uri.fsPath, workspaceTestAdapter);
 
             if (settings.testing.autoTestDiscoverOnSaveEnabled) {
                 traceVerbose(`Testing: Setting up watcher for ${workspace.uri.fsPath}`);
@@ -314,7 +314,7 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
      * Validates that the adapter's provider matches the expected provider.
      */
     private async discoverTestsForProvider(workspaceUri: Uri, expectedProvider: TestProvider): Promise<void> {
-        const testAdapter = this.testAdapters.get(workspaceUri);
+        const testAdapter = this.testAdapters.get(workspaceUri.fsPath);
 
         if (!testAdapter) {
             traceError('Unable to find test adapter for workspace.');
@@ -473,7 +473,7 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
         }
 
         const testAdapter =
-            this.testAdapters.get(workspace.uri) || (this.testAdapters.values().next().value as WorkspaceTestAdapter);
+            this.testAdapters.get(workspace.uri.fsPath) || (this.testAdapters.values().next().value as WorkspaceTestAdapter);
 
         this.setupCoverageIfNeeded(request, testAdapter);
 
