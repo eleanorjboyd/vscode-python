@@ -16,6 +16,7 @@ import {
 import { ITestDebugLauncher } from '../../common/types';
 import { IPythonExecutionFactory } from '../../../common/process/types';
 import { PythonEnvironment } from '../../../pythonEnvironments/info';
+import { PythonProject } from '../../../envExt/types';
 
 export enum TestDataKinds {
     Workspace,
@@ -31,6 +32,7 @@ export interface TestData {
     uri: Uri;
     parentId?: string;
     kind: TestDataKinds;
+    project?: PythonProject;
 }
 
 export type TestRefreshOptions = { forceRefresh: boolean };
@@ -114,6 +116,7 @@ export type TestCommandOptions = {
     outChannel?: OutputChannel;
     profileKind?: TestRunProfileKind;
     testIds?: string[];
+    project?: PythonProject;
 };
 
 // /**

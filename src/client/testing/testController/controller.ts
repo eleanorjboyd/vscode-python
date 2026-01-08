@@ -52,6 +52,8 @@ import { ITestDebugLauncher } from '../common/types';
 import { PythonResultResolver } from './common/resultResolver';
 import { onDidSaveTextDocument } from '../../common/vscodeApis/workspaceApis';
 import { IEnvironmentVariablesProvider } from '../../common/variables/types';
+import { PythonProject } from '../../envExt/types';
+import { getEnvExtApi, useEnvExtension } from '../../envExt/api.internal';
 
 // Types gymnastics to make sure that sendTriggerTelemetry only accepts the correct types.
 type EventPropertyType = IEventNamePropertyMapping[EventName.UNITTEST_DISCOVERY_TRIGGER];
@@ -162,7 +164,7 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
 
     public async activate(): Promise<void> {
         const workspaces: readonly WorkspaceFolder[] = this.workspaceService.workspaceFolders || [];
-        workspaces.forEach((workspace) => {
+        workspaces.forEach(async (workspace) => {
             const settings = this.configSettings.getSettings(workspace.uri);
 
             let discoveryAdapter: ITestDiscoveryAdapter;
@@ -198,12 +200,25 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
                 );
             }
 
+            // Try to get the PythonProject for this workspace if the envExt API is available
+            let project: PythonProject | undefined;
+            try {
+                if (useEnvExtension()) {
+                    const envExtApi = await getEnvExtApi();
+                    project = envExtApi.getPythonProject(workspace.uri);
+                }
+            } catch (error) {
+                // EnvExt API not available or project not found, continue without project
+                traceVerbose(`Could not get Python project for workspace ${workspace.uri.fsPath}: ${error}`);
+            }
+
             const workspaceTestAdapter = new WorkspaceTestAdapter(
                 testProvider,
                 discoveryAdapter,
                 executionAdapter,
                 workspace.uri,
                 resultResolver,
+                project,
             );
 
             this.testAdapters.set(workspace.uri, workspaceTestAdapter);

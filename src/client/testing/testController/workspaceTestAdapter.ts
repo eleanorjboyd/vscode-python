@@ -15,6 +15,7 @@ import { IPythonExecutionFactory } from '../../common/process/types';
 import { ITestDebugLauncher } from '../common/types';
 import { buildErrorNodeOptions } from './common/utils';
 import { PythonEnvironment } from '../../pythonEnvironments/info';
+import { PythonProject } from '../../envExt/types';
 
 /**
  * This class exposes a test-provider-agnostic way of discovering tests.
@@ -36,6 +37,7 @@ export class WorkspaceTestAdapter {
         private executionAdapter: ITestExecutionAdapter,
         private workspaceUri: Uri,
         public resultResolver: ITestResultResolver,
+        private project?: PythonProject,
     ) {}
 
     public async executeTests(
@@ -171,5 +173,14 @@ export class WorkspaceTestAdapter {
      */
     public getTestProvider(): TestProvider {
         return this.testProvider;
+    }
+
+    /**
+     * Retrieves the associated Python project, if any.
+     *
+     * @returns {PythonProject | undefined} The Python project or undefined.
+     */
+    public getProject(): PythonProject | undefined {
+        return this.project;
     }
 }
