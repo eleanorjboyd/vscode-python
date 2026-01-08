@@ -52,7 +52,7 @@ import { ITestDebugLauncher } from '../common/types';
 import { PythonResultResolver } from './common/resultResolver';
 import { onDidSaveTextDocument } from '../../common/vscodeApis/workspaceApis';
 import { IEnvironmentVariablesProvider } from '../../common/variables/types';
-import { findProjectRoots, ProjectRoot, findProjectForTestItem, isFileInProject } from './common/projectRootFinder';
+import { findProjectRoots, ProjectRoot, isFileInProject } from './common/projectRootFinder';
 
 // Types gymnastics to make sure that sendTriggerTelemetry only accepts the correct types.
 type EventPropertyType = IEventNamePropertyMapping[EventName.UNITTEST_DISCOVERY_TRIGGER];
@@ -187,13 +187,13 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
 
     /**
      * Creates a test adapter for a specific project root within a workspace.
-     * @param workspaceUri The workspace folder URI
+     * @param _workspaceUri The workspace folder URI (for future use)
      * @param projectRoot The project root to create adapter for
      * @param testProvider The test provider (pytest or unittest)
      * @returns A ProjectTestAdapter instance
      */
     private createProjectAdapter(
-        workspaceUri: Uri,
+        _workspaceUri: Uri,
         projectRoot: ProjectRoot,
         testProvider: TestProvider,
     ): ProjectTestAdapter {

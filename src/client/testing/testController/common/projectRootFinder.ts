@@ -2,9 +2,10 @@
 // Licensed under the MIT License.
 
 import * as path from 'path';
-import { Uri, workspace, RelativePattern } from 'vscode';
+import { Uri, RelativePattern } from 'vscode';
 import { traceVerbose } from '../../../logging';
 import { TestProvider } from '../../types';
+import * as workspaceApis from '../../../common/vscodeApis/workspaceApis';
 
 /**
  * Markers that indicate a Python project root for different test frameworks
@@ -49,7 +50,7 @@ export async function findProjectRoots(workspaceUri: Uri, testProvider: TestProv
             // Exclude common directories to improve performance
             const pattern = `**/${marker}`;
             const exclude = '**/node_modules/**,**/.venv/**,**/venv/**,**/__pycache__/**,**/.git/**';
-            const foundFiles = await workspace.findFiles(
+            const foundFiles = await workspaceApis.findFiles(
                 new RelativePattern(workspaceUri, pattern),
                 exclude,
                 100, // Limit to 100 projects max
