@@ -23,14 +23,12 @@ async function test_writeTestIdToClipboard() {
         // unittest id
         const testItem = { id: 'a/b/c.py\\MyClass\\my_method' };
         await utils.writeTestIdToClipboard(testItem as any);
-        console.log('First call - stub call count:', clipboardStub.callCount, 'args:', clipboardStub.args);
         sinon.assert.calledOnceWithExactly(clipboardStub, 'c.MyClass.my_method');
         clipboardStub.resetHistory();
 
         // pytest id
         const testItem2 = { id: 'tests/test_foo.py::TestClass::test_method' };
         await utils.writeTestIdToClipboard(testItem2 as any);
-        console.log('Second call - stub call count:', clipboardStub.callCount, 'args:', clipboardStub.args);
         sinon.assert.calledOnceWithExactly(clipboardStub, 'tests/test_foo.py::TestClass::test_method');
         clipboardStub.resetHistory();
 
