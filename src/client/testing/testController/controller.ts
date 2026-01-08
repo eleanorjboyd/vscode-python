@@ -52,17 +52,27 @@ import { ITestDebugLauncher } from '../common/types';
 import { PythonResultResolver } from './common/resultResolver';
 import { onDidSaveTextDocument } from '../../common/vscodeApis/workspaceApis';
 import { IEnvironmentVariablesProvider } from '../../common/variables/types';
+import { findProjectRoots, ProjectRoot, findProjectForTestItem, isFileInProject } from './common/projectRootFinder';
 
 // Types gymnastics to make sure that sendTriggerTelemetry only accepts the correct types.
 type EventPropertyType = IEventNamePropertyMapping[EventName.UNITTEST_DISCOVERY_TRIGGER];
 type TriggerKeyType = keyof EventPropertyType;
 type TriggerType = EventPropertyType[TriggerKeyType];
 
+/**
+ * Represents a project-specific test adapter with its project root information
+ */
+interface ProjectTestAdapter {
+    adapter: WorkspaceTestAdapter;
+    projectRoot: ProjectRoot;
+}
+
 @injectable()
 export class PythonTestController implements ITestController, IExtensionSingleActivationService {
     public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: false };
 
-    private readonly testAdapters: Map<Uri, WorkspaceTestAdapter> = new Map();
+    // Map of workspace URI -> array of project-specific test adapters
+    private readonly testAdapters: Map<string, ProjectTestAdapter[]> = new Map();
 
     private readonly triggerTypes: TriggerType[] = [];
 
@@ -163,57 +173,75 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
     public async activate(): Promise<void> {
         const workspaces: readonly WorkspaceFolder[] = this.workspaceService.workspaceFolders || [];
         workspaces.forEach((workspace) => {
+            // Initialize with empty array - projects will be detected during discovery
+            this.testAdapters.set(workspace.uri.toString(), []);
+
             const settings = this.configSettings.getSettings(workspace.uri);
-
-            let discoveryAdapter: ITestDiscoveryAdapter;
-            let executionAdapter: ITestExecutionAdapter;
-            let testProvider: TestProvider;
-            let resultResolver: PythonResultResolver;
-
-            if (settings.testing.unittestEnabled) {
-                testProvider = UNITTEST_PROVIDER;
-                resultResolver = new PythonResultResolver(this.testController, testProvider, workspace.uri);
-                discoveryAdapter = new UnittestTestDiscoveryAdapter(
-                    this.configSettings,
-                    resultResolver,
-                    this.envVarsService,
-                );
-                executionAdapter = new UnittestTestExecutionAdapter(
-                    this.configSettings,
-                    resultResolver,
-                    this.envVarsService,
-                );
-            } else {
-                testProvider = PYTEST_PROVIDER;
-                resultResolver = new PythonResultResolver(this.testController, testProvider, workspace.uri);
-                discoveryAdapter = new PytestTestDiscoveryAdapter(
-                    this.configSettings,
-                    resultResolver,
-                    this.envVarsService,
-                );
-                executionAdapter = new PytestTestExecutionAdapter(
-                    this.configSettings,
-                    resultResolver,
-                    this.envVarsService,
-                );
-            }
-
-            const workspaceTestAdapter = new WorkspaceTestAdapter(
-                testProvider,
-                discoveryAdapter,
-                executionAdapter,
-                workspace.uri,
-                resultResolver,
-            );
-
-            this.testAdapters.set(workspace.uri, workspaceTestAdapter);
-
             if (settings.testing.autoTestDiscoverOnSaveEnabled) {
                 traceVerbose(`Testing: Setting up watcher for ${workspace.uri.fsPath}`);
                 this.watchForSettingsChanges(workspace);
                 this.watchForTestContentChangeOnSave();
             }
         });
+    }
+
+    /**
+     * Creates a test adapter for a specific project root within a workspace.
+     * @param workspaceUri The workspace folder URI
+     * @param projectRoot The project root to create adapter for
+     * @param testProvider The test provider (pytest or unittest)
+     * @returns A ProjectTestAdapter instance
+     */
+    private createProjectAdapter(
+        workspaceUri: Uri,
+        projectRoot: ProjectRoot,
+        testProvider: TestProvider,
+    ): ProjectTestAdapter {
+        traceVerbose(
+            `Creating ${testProvider} adapter for project at ${projectRoot.uri.fsPath} (marker: ${projectRoot.markerFile})`,
+        );
+
+        const resultResolver = new PythonResultResolver(this.testController, testProvider, projectRoot.uri);
+
+        let discoveryAdapter: ITestDiscoveryAdapter;
+        let executionAdapter: ITestExecutionAdapter;
+
+        if (testProvider === UNITTEST_PROVIDER) {
+            discoveryAdapter = new UnittestTestDiscoveryAdapter(
+                this.configSettings,
+                resultResolver,
+                this.envVarsService,
+            );
+            executionAdapter = new UnittestTestExecutionAdapter(
+                this.configSettings,
+                resultResolver,
+                this.envVarsService,
+            );
+        } else {
+            discoveryAdapter = new PytestTestDiscoveryAdapter(
+                this.configSettings,
+                resultResolver,
+                this.envVarsService,
+            );
+            executionAdapter = new PytestTestExecutionAdapter(
+                this.configSettings,
+                resultResolver,
+                this.envVarsService,
+            );
+        }
+
+        const workspaceTestAdapter = new WorkspaceTestAdapter(
+            testProvider,
+            discoveryAdapter,
+            executionAdapter,
+            projectRoot.uri, // Use project root URI instead of workspace URI
+            resultResolver,
+        );
+
+        return {
+            adapter: workspaceTestAdapter,
+            projectRoot,
+        };
     }
 
     public refreshTestData(uri?: Resource, options?: TestRefreshOptions): Promise<void> {
@@ -311,32 +339,65 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
 
     /**
      * Discovers tests for a specific test provider (pytest or unittest).
-     * Validates that the adapter's provider matches the expected provider.
+     * Detects all project roots within the workspace and runs discovery for each project.
      */
     private async discoverTestsForProvider(workspaceUri: Uri, expectedProvider: TestProvider): Promise<void> {
-        const testAdapter = this.testAdapters.get(workspaceUri);
+        const workspaceKey = workspaceUri.toString();
 
-        if (!testAdapter) {
-            traceError('Unable to find test adapter for workspace.');
-            return;
-        }
+        // Step 1: Detect all project roots in the workspace
+        traceVerbose(`Detecting ${expectedProvider} projects in workspace: ${workspaceUri.fsPath}`);
+        const projectRoots = await findProjectRoots(workspaceUri, expectedProvider);
+        traceVerbose(`Found ${projectRoots.length} project(s) in workspace ${workspaceUri.fsPath}`);
 
-        const actualProvider = testAdapter.getTestProvider();
-        if (actualProvider !== expectedProvider) {
-            traceError(`Test provider in adapter is not ${expectedProvider}. Please reload window.`);
-            this.surfaceErrorNode(
-                workspaceUri,
-                'Test provider types are not aligned, please reload your VS Code window.',
-                expectedProvider,
+        // Step 2: Create or reuse adapters for each project
+        const existingAdapters = this.testAdapters.get(workspaceKey) || [];
+        const newAdapters: ProjectTestAdapter[] = [];
+
+        for (const projectRoot of projectRoots) {
+            // Check if we already have an adapter for this project
+            const existingAdapter = existingAdapters.find(
+                (a) => a.projectRoot.uri.fsPath === projectRoot.uri.fsPath && a.adapter.getTestProvider() === expectedProvider,
             );
-            return;
+
+            if (existingAdapter) {
+                traceVerbose(`Reusing existing adapter for project at ${projectRoot.uri.fsPath}`);
+                newAdapters.push(existingAdapter);
+            } else {
+                // Create new adapter for this project
+                const projectAdapter = this.createProjectAdapter(workspaceUri, projectRoot, expectedProvider);
+                newAdapters.push(projectAdapter);
+            }
         }
 
-        await testAdapter.discoverTests(
-            this.testController,
-            this.pythonExecFactory,
-            this.refreshCancellation.token,
-            await this.interpreterService.getActiveInterpreter(workspaceUri),
+        // Update the adapters map
+        this.testAdapters.set(workspaceKey, newAdapters);
+
+        // Step 3: Run discovery for each project
+        const interpreter = await this.interpreterService.getActiveInterpreter(workspaceUri);
+        await Promise.all(
+            newAdapters.map(async ({ adapter, projectRoot }) => {
+                traceVerbose(
+                    `Running ${expectedProvider} discovery for project at ${projectRoot.uri.fsPath}`,
+                );
+                try {
+                    await adapter.discoverTests(
+                        this.testController,
+                        this.pythonExecFactory,
+                        this.refreshCancellation.token,
+                        interpreter,
+                    );
+                } catch (error) {
+                    traceError(
+                        `Error during ${expectedProvider} discovery for project at ${projectRoot.uri.fsPath}:`,
+                        error,
+                    );
+                    this.surfaceErrorNode(
+                        projectRoot.uri,
+                        `Error discovering tests in project at ${projectRoot.uri.fsPath}: ${error}`,
+                        expectedProvider,
+                    );
+                }
+            }),
         );
     }
 
@@ -447,6 +508,7 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
 
     /**
      * Runs tests for a single workspace.
+     * Groups tests by project and executes them using the appropriate project adapter.
      */
     private async runTestsForWorkspace(
         workspace: WorkspaceFolder,
@@ -472,34 +534,65 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
             return;
         }
 
-        const testAdapter =
-            this.testAdapters.get(workspace.uri) || (this.testAdapters.values().next().value as WorkspaceTestAdapter);
+        // Get project adapters for this workspace
+        const workspaceKey = workspace.uri.toString();
+        const projectAdapters = this.testAdapters.get(workspaceKey) || [];
 
-        this.setupCoverageIfNeeded(request, testAdapter);
-
-        if (settings.testing.pytestEnabled) {
-            await this.executeTestsForProvider(
-                workspace,
-                testAdapter,
-                testItems,
-                runInstance,
-                request,
-                token,
-                'pytest',
-            );
-        } else if (settings.testing.unittestEnabled) {
-            await this.executeTestsForProvider(
-                workspace,
-                testAdapter,
-                testItems,
-                runInstance,
-                request,
-                token,
-                'unittest',
-            );
-        } else {
+        if (projectAdapters.length === 0) {
+            traceError('No test adapters found for workspace. Tests may not have been discovered yet.');
             unconfiguredWorkspaces.push(workspace);
+            return;
         }
+
+        // Group test items by project
+        const testItemsByProject = new Map<string, TestItem[]>();
+        for (const testItem of testItems) {
+            // Find which project this test belongs to
+            const projectAdapter = projectAdapters.find(({ projectRoot }) => {
+                const testPath = testItem.uri?.fsPath;
+                if (!testPath) {
+                    return false;
+                }
+                return isFileInProject(testPath, projectRoot);
+            });
+
+            if (projectAdapter) {
+                const projectKey = projectAdapter.projectRoot.uri.fsPath;
+                if (!testItemsByProject.has(projectKey)) {
+                    testItemsByProject.set(projectKey, []);
+                }
+                testItemsByProject.get(projectKey)!.push(testItem);
+            } else {
+                traceError(`Could not find project adapter for test: ${testItem.id}`);
+            }
+        }
+
+        // Execute tests for each project
+        const testProvider = settings.testing.pytestEnabled ? 'pytest' : 'unittest';
+        await Promise.all(
+            Array.from(testItemsByProject.entries()).map(async ([projectPath, projectTestItems]) => {
+                const projectAdapter = projectAdapters.find(
+                    ({ projectRoot }) => projectRoot.uri.fsPath === projectPath,
+                );
+
+                if (!projectAdapter) {
+                    traceError(`Project adapter not found for project at ${projectPath}`);
+                    return;
+                }
+
+                this.setupCoverageIfNeeded(request, projectAdapter.adapter);
+
+                await this.executeTestsForProvider(
+                    workspace,
+                    projectAdapter.adapter,
+                    projectTestItems,
+                    runInstance,
+                    request,
+                    token,
+                    testProvider,
+                );
+            }),
+        );
     }
 
     /**
