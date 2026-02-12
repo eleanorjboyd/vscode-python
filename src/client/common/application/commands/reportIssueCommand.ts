@@ -14,6 +14,7 @@ import { EXTENSION_ROOT_DIR } from '../../../constants';
 import { IInterpreterService } from '../../../interpreter/contracts';
 import { Commands } from '../../constants';
 import { IConfigurationService, IPythonSettings } from '../../types';
+import { getConfiguration } from '../../vscodeApis/workspaceApis';
 import { sendTelemetryEvent } from '../../../telemetry';
 import { EventName } from '../../../telemetry/constants';
 import { EnvironmentType } from '../../../pythonEnvironments/info';
@@ -102,6 +103,9 @@ export class ReportIssueCommandHandler implements IExtensionSingleActivationServ
                 ? `Multiroot scenario, following user settings may not apply:${os.EOL}`
                 : '';
 
+        // Get useEnvironmentsExtension value and indicate if it's user-configured
+        const useEnvExtensionValue = this.getUseEnvironmentsExtensionInfo();
+
         const installedExtensions = getExtensions()
             .filter((extension) => !extension.id.startsWith('vscode.'))
             .sort((a, b) => {
@@ -128,6 +132,7 @@ export class ReportIssueCommandHandler implements IExtensionSingleActivationServ
                 hasMultipleFoldersText,
                 userSettings,
                 installedExtensions.join('\n'),
+                useEnvExtensionValue,
             ),
         });
         sendTelemetryEvent(EventName.USE_REPORT_ISSUE_COMMAND, undefined, {});
@@ -140,5 +145,26 @@ export class ReportIssueCommandHandler implements IExtensionSingleActivationServ
         const resource = PythonSettings.getSettingsUriAndTarget(undefined, this.workspaceService).uri;
         const systemVariables = new SystemVariables(resource, undefined, this.workspaceService);
         return systemVariables.resolveAny(this.packageJSONSettings[`python.${settingKey}`]?.default);
+    }
+
+    private getUseEnvironmentsExtensionInfo(): string {
+        const config = getConfiguration('python');
+        const value = config.get<boolean>('useEnvironmentsExtension', false);
+        const inspection = config.inspect<boolean>('useEnvironmentsExtension');
+
+        // Determine where the setting is configured
+        let source = 'default';
+        if (inspection?.workspaceFolderValue !== undefined) {
+            source = 'workspace folder';
+        } else if (inspection?.workspaceValue !== undefined) {
+            source = 'workspace';
+        } else if (inspection?.globalValue !== undefined) {
+            source = 'user settings';
+        }
+
+        if (source === 'default') {
+            return `${value}`;
+        }
+        return `${value} (set in ${source})`;
     }
 }
