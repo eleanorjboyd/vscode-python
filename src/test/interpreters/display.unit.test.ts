@@ -223,10 +223,7 @@ suite('Interpreters Display', () => {
                     .returns(() => Promise.resolve(activeInterpreter));
 
                 await interpreterDisplay.refresh(resource);
-                traceLogStub.calledOnceWithExactly(
-                    `Python interpreter path: ${activeInterpreter.path}`,
-                    activeInterpreter.path,
-                );
+                sinon.assert.calledOnce(traceLogStub);
             });
             test('If interpreter is not identified then tooltip should point to python Path', async () => {
                 const resource = Uri.file('x');
@@ -261,7 +258,6 @@ suite('Interpreters Display', () => {
             });
             test('If interpreter file does not exist then update status bar accordingly', async () => {
                 const resource = Uri.file('x');
-                const pythonPath = path.join('user', 'development', 'env', 'bin', 'python');
                 const workspaceFolder = Uri.file('workspace');
                 setupWorkspaceFolder(resource, workspaceFolder);
 
@@ -270,12 +266,6 @@ suite('Interpreters Display', () => {
                     .returns(() => [{} as any]);
                 interpreterService
                     .setup((i) => i.getActiveInterpreter(TypeMoq.It.isValue(workspaceFolder)))
-                    .returns(() => Promise.resolve(undefined));
-                fileSystem
-                    .setup((f) => f.fileExists(TypeMoq.It.isValue(pythonPath)))
-                    .returns(() => Promise.resolve(false));
-                interpreterHelper
-                    .setup((v) => v.getInterpreterInformation(TypeMoq.It.isValue(pythonPath)))
                     .returns(() => Promise.resolve(undefined));
 
                 await interpreterDisplay.refresh(resource);
