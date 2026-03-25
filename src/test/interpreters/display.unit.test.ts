@@ -466,12 +466,7 @@ suite('Interpreters Display', () => {
             await display.activate();
 
             applicationShell.verify(
-                (a) =>
-                    a.createStatusBarItem(
-                        TypeMoq.It.isAny(),
-                        TypeMoq.It.isAny(),
-                        TypeMoq.It.isAny(),
-                    ),
+                (a) => a.createStatusBarItem(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()),
                 TypeMoq.Times.once(), // once from setupMocks, never from this activate
             );
         });
