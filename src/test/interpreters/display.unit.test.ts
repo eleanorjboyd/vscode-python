@@ -59,7 +59,7 @@ suite('Interpreters Display', () => {
     let pathUtils: TypeMoq.IMock<IPathUtils>;
     let languageStatusItem: TypeMoq.IMock<LanguageStatusItem>;
     let traceLogStub: sinon.SinonStub;
-    let useEnvExtensionStub: sinon.SinonStub;
+    let shouldEnvExtHandleActivationStub: sinon.SinonStub;
     async function createInterpreterDisplay(filters: IInterpreterStatusbarVisibilityFilter[] = []) {
         interpreterDisplay = new InterpreterDisplay(serviceContainer.object);
         try {
@@ -69,8 +69,8 @@ suite('Interpreters Display', () => {
     }
 
     async function setupMocks(useLanguageStatus: boolean) {
-        useEnvExtensionStub = sinon.stub(extapi, 'useEnvExtension');
-        useEnvExtensionStub.returns(false);
+        shouldEnvExtHandleActivationStub = sinon.stub(extapi, 'shouldEnvExtHandleActivation');
+        shouldEnvExtHandleActivationStub.returns(false);
 
         serviceContainer = TypeMoq.Mock.ofType<IServiceContainer>();
         workspaceService = TypeMoq.Mock.ofType<IWorkspaceService>();
@@ -448,6 +448,44 @@ suite('Interpreters Display', () => {
                     statusBar.verify((s) => s.hide(), TypeMoq.Times.never());
                 });
             });
+        });
+    });
+
+    suite('When env extension handles activation', () => {
+        setup(async () => {
+            await setupMocks(false);
+        });
+
+        teardown(() => {
+            sinon.restore();
+        });
+
+        test('Status bar is not created when shouldEnvExtHandleActivation returns true', async () => {
+            shouldEnvExtHandleActivationStub.returns(true);
+            const display = new InterpreterDisplay(serviceContainer.object);
+            await display.activate();
+
+            applicationShell.verify(
+                (a) =>
+                    a.createStatusBarItem(
+                        TypeMoq.It.isAny(),
+                        TypeMoq.It.isAny(),
+                        TypeMoq.It.isAny(),
+                    ),
+                TypeMoq.Times.once(), // once from setupMocks, never from this activate
+            );
+        });
+
+        test('Status bar is hidden when shouldEnvExtHandleActivation returns true during refresh', async () => {
+            // activate() was called with stub returning false (from setupMocks), so statusBar exists.
+            // Now switch to true and refresh — status bar should be hidden.
+            shouldEnvExtHandleActivationStub.returns(true);
+            const resource = Uri.file('x');
+
+            await interpreterDisplay.refresh(resource);
+
+            statusBar.verify((s) => s.hide(), TypeMoq.Times.once());
+            statusBar.verify((s) => s.show(), TypeMoq.Times.never());
         });
     });
 });
