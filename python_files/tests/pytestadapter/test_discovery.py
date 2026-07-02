@@ -1,5 +1,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
+import importlib.util
 import json
 import os
 import pathlib
@@ -12,6 +13,8 @@ import vscode_pytest
 from tests.tree_comparison_helper import is_same_tree
 
 from . import expected_discovery_test_output, helpers
+
+PYTEST_BLACK_AVAILABLE = importlib.util.find_spec("pytest_black") is not None
 
 
 def test_compact_discovery_payload_keeps_absolute_tree_until_return(tmp_path, monkeypatch):
@@ -476,10 +479,14 @@ def test_config_sub_folder():
             expected_discovery_test_output.ruff_test_expected_output,
             "--ruff",
         ),
-        (
+        pytest.param(
             "2496-black-formatter",
             expected_discovery_test_output.black_formatter_expected_output,
             "--black",
+            marks=pytest.mark.skipif(
+                not PYTEST_BLACK_AVAILABLE,
+                reason="pytest-black is not installed for this pytest environment",
+            ),
         ),
     ],
 )
