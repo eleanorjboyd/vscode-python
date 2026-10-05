@@ -72,6 +72,18 @@ The adapters in the extension don't implement test discovery/run logic themselve
     -   Adapters rely on a stable JSON payload contract emitted by the Python scripts: identifiers for tests, event types (discovered, collected, started, passed, failed, skipped), timings, error traces, and optional attachments (logs, captured stdout/stderr, file links).
     -   The extension maps these payloads to `TestItem`/`TestRun` updates via `PythonResultResolver` (`src/client/testing/testController/common/resultResolver.ts`). If you change payload shape, update the resolver and tests concurrently.
 
+-   Named pipe lifecycle management
+
+    -   The named pipe utilities (`startDiscoveryNamedPipe` and `startRunResultNamedPipe` in `src/client/testing/testController/common/utils.ts`) now return just the pipe name as a `string` (not a disposable object).
+    -   Cleanup and resource management is handled automatically via cancellation tokens passed to the pipe creation functions. When the cancellation token is triggered, the pipe readers are disposed internally.
+    -   Adapters should use `CancellationTokenSource` to manage cancellation (see pytest adapters for reference). The cancellation token is linked to the VS Code `TestRun` token so cancellation propagates correctly.
+    -   On Linux/Mac, FIFO files are created with `chmod 0o666` permissions to ensure proper access.
+    -   The `CombinedReader` class in `namedPipes.ts` handles multiple reader connections and properly cleans up resources when readers are closed or encounter errors.
+    -   Python-side message sending functions have been renamed for clarity:
+        -   `execution_post()` → `send_execution_message()`
+        -   `post_response()` → `send_discovery_message()`
+        -   `send_post_request()` → `send_message()`
+
 -   How the subprocess is started
     -   Execution adapters use the extension's `ExecutionFactory` (preferred) to get an activated interpreter and then spawn a child process that runs the helper script. The adapter will set up environment variables and command-line args (including the pipe name / run-id) so the Python runner knows where to send events and how to behave (discovery vs run vs debug).
     -   For debug sessions a debug-specific entry argument/port is passed and `common/debugLauncher.ts` coordinates starting a VS Code debug session that will attach to the Python process.
@@ -123,12 +135,14 @@ The adapters in the extension don't implement test discovery/run logic themselve
 -   Migration to TestController API: the code organizes around VS Code TestController, mapping legacy adapter behaviour into TestItems/TestRuns.
 -   Named-pipe IPC: discovery/run use named-pipe IPC to stream events from Python runner scripts (`python_files/*`) which enables richer, incremental updates and debug coordination.
 -   Environment activation: adapters prefer the extension ExecutionFactory (activated interpreter) to run discovery and test scripts.
+-   Named pipe lifecycle refactoring (PR #24): simplified the named pipe API to return only pipe names (strings) instead of disposable objects. Resource cleanup is now handled automatically via cancellation tokens, improving reliability and reducing manual disposal errors. FIFO file permissions on Linux/Mac are now set to `0o666` for better compatibility.
 
 ## Pointers for contributors (practical)
 
 -   To extend discovery output: update the Python discovery script in `python_files/*` and `resultResolver.ts` to parse new payload fields.
 -   To change run behaviour (args/env/timouts): update the provider execution adapter (`*ExecutionAdapter.ts`) and add/update tests under `src/test/`.
 -   To change debug flow: edit `common/debugLauncher.ts` and adapters' debug paths; update tests that assert launch argument shapes.
+-   To modify named pipe behavior: the pipe creation functions (`startDiscoveryNamedPipe`, `startRunResultNamedPipe`) now return only the pipe name string. Resource cleanup is handled via cancellation tokens. Do not manually call `dispose()` on pipes; instead, cancel the `CancellationTokenSource` passed during pipe creation.
 
 ## Django support (how it works)
 
